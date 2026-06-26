@@ -132,12 +132,16 @@ async function initFirebase() {
 
   authModule.onAuthStateChanged(state.firebaseAuth, async (firebaseUser) => {
     if (!firebaseUser) return;
-    const profileRef = firestoreModule.doc(state.firestore, "users", firebaseUser.uid);
-    const profileSnap = await firestoreModule.getDoc(profileRef);
-    if (profileSnap.exists()) {
-      state.user = { uid: firebaseUser.uid, ...profileSnap.data(), emailVerified: firebaseUser.emailVerified };
-      state.route = firebaseUser.emailVerified ? "home" : "verify";
-      render();
+    try {
+      const profileRef = firestoreModule.doc(state.firestore, "users", firebaseUser.uid);
+      const profileSnap = await firestoreModule.getDoc(profileRef);
+      if (profileSnap.exists()) {
+        state.user = { uid: firebaseUser.uid, ...profileSnap.data(), emailVerified: firebaseUser.emailVerified };
+        state.route = firebaseUser.emailVerified ? "home" : "verify";
+        render();
+      }
+    } catch (error) {
+      console.warn("Saved session could not be restored", error);
     }
   });
 }
@@ -203,13 +207,16 @@ async function loginFirebase(admissionNumber, password) {
   if (profile.deactivated) throw new Error("Your account is scheduled for deletion. Restore your account to continue.");
   const sessionId = makeId();
   localStorage.setItem("hau_active_session", sessionId);
+  const nextUser = { ...profile, uid: credential.user.uid, emailVerified: true, active: true, activeSessionId: sessionId };
+  state.user = nextUser;
+  state.route = "home";
   await db.updateDoc(db.doc(firestore, "users", credential.user.uid), {
     active: true,
     activeSessionId: sessionId,
     lastLoginAt: db.serverTimestamp()
+  }).catch((error) => {
+    console.warn("Login session update was blocked, continuing sign in", error);
   });
-  state.user = { ...profile, uid: credential.user.uid, emailVerified: true };
-  state.route = "home";
 }
 
 async function signupDemo(data) {
@@ -526,7 +533,7 @@ function friendlyFirebaseError(error) {
   if (code.includes("auth/email-already-in-use")) return "This email is already linked to an account. Sign in instead.";
   if (code.includes("auth/operation-not-allowed")) return "Email/password sign-in is not enabled in Firebase Authentication.";
   if (code.includes("auth/invalid-email")) return "Valid email format required.";
-  if (code.includes("permission-denied")) return `Firestore blocked this write. I need to adjust the security rules.${suffix}`;
+  if (code.includes("permission-denied")) return `Firestore blocked this action. I need to adjust the security rules.${suffix}`;
   if (code.includes("unavailable") || message.includes("network")) return `Firebase network request failed. Check internet connection and try again.${suffix}`;
   return `${message || "Account could not be created. Try again."}${suffix}`;
 }
