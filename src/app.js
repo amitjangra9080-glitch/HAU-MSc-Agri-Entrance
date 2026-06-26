@@ -452,7 +452,7 @@ function renderHome() {
         </div>
       </div>
       <div class="home-head">
-        <div class="search">
+        <div class="search sticky-search">
           <span>${icons.search}</span>
           <input id="globalSearch" value="${htmlescape(state.globalSearch)}" placeholder="Search all PYQs" />
         </div>
@@ -538,7 +538,7 @@ function renderPaper() {
   app.innerHTML = `
     <section class="screen">
       ${topbar(paper.title, `Set ${paper.set} · ${paper.questionCount} questions`, "home")}
-      <div class="search">
+      <div class="search sticky-search">
         <span>${icons.search}</span>
         <input id="paperSearch" value="${htmlescape(state.paperSearch)}" placeholder="Search within this PYP" />
       </div>
@@ -759,6 +759,7 @@ app.addEventListener("click", async (event) => {
     state.questionNavOpen = false;
     state.route = "paper";
     render();
+    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
     return;
   }
 
