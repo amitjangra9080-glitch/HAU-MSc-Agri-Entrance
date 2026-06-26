@@ -22,9 +22,9 @@ const phonePattern = /^[6-9]\d{9}$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const campusOptions = [
-  "College of Agriculture, Hisar",
-  "College of Agriculture, Bawal",
-  "College of Agriculture, Kaul"
+  "Hisar",
+  "Bawal",
+  "Kaul"
 ];
 
 const programmeOptions = ["4-year programme", "2+4-year programme"];
@@ -401,7 +401,7 @@ function renderSignup() {
       <div class="form" id="signupForm">
         ${field("displayName", "Full Name")}
         ${field("admissionNumber", "Admission number")}
-        ${selectField("campus", "Campus", campusOptions)}
+        ${selectField("campus", "College of Agriculture", campusOptions)}
         ${selectField("programme", "Programme", programmeOptions)}
         ${selectField("academicStatus", "Current academic status", academicStatusOptionsFor(programmeOptions[0]))}
         ${field("email", "Email address", "email", "", "autocomplete=\"email\"")}
