@@ -168,7 +168,7 @@ async function signupFirebase(data) {
       createdAt: db.serverTimestamp()
     });
     await Promise.all([
-      db.setDoc(admissionRef, { uid: credential.user.uid }),
+      db.setDoc(admissionRef, { uid: credential.user.uid, email: data.email }),
       db.setDoc(phoneRef, { uid: credential.user.uid })
     ]);
   } catch (error) {
@@ -187,10 +187,14 @@ async function loginFirebase(admissionNumber, password) {
   const { auth, db, firebaseAuth, firestore } = state;
   const admissionSnap = await db.getDoc(db.doc(firestore, "admissionNumbers", admissionNumber));
   if (!admissionSnap.exists()) throw new Error("Invalid admission number or password.");
-  const userSnap = await db.getDoc(db.doc(firestore, "users", admissionSnap.data().uid));
+  const admissionData = admissionSnap.data();
+  if (!admissionData.email) {
+    throw new Error("This account was created before the login fix. Create a new test account or add email to the admission lookup in Firestore.");
+  }
+  const credential = await auth.signInWithEmailAndPassword(firebaseAuth, admissionData.email, password);
+  const userSnap = await db.getDoc(db.doc(firestore, "users", credential.user.uid));
   if (!userSnap.exists()) throw new Error("Invalid admission number or password.");
   const profile = userSnap.data();
-  const credential = await auth.signInWithEmailAndPassword(firebaseAuth, profile.email, password);
   if (!credential.user.emailVerified) {
     state.user = { ...profile, uid: credential.user.uid, emailVerified: false };
     state.route = "verify";
