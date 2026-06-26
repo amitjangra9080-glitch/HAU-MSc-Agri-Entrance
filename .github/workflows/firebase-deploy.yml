@@ -23,7 +23,7 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_HAU_MSC_AGRI_ENTRANCE_2026 }}"
+          credentials_json: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_HAU_MSC_AGRI_ENTRANCE }}"
 
       - name: Deploy Firebase Hosting, Firestore rules, and Storage rules
-        run: firebase deploy --project hau-msc-agri-entrance-2026 --only hosting,firestore:rules,storage --non-interactive
+        run: firebase deploy --project hau-msc-agri-entrance --only hosting,firestore:rules,storage --non-interactive
