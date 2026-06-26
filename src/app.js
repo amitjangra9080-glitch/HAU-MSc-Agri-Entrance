@@ -28,7 +28,10 @@ const campusOptions = [
 ];
 
 const programmeOptions = ["4-year programme", "2+4-year programme"];
-const academicStatusOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Passed Out"];
+const academicStatusByProgramme = {
+  "4-year programme": ["1st Year", "2nd Year", "3rd Year", "Final Year", "Passed Out"],
+  "2+4-year programme": ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Final Year", "Passed Out"]
+};
 
 const icons = {
   back: "‹",
@@ -63,6 +66,10 @@ function campusPrefix(campus) {
 
 function programmeCode(programme) {
   return programme === "2+4-year programme" ? "VI" : "IV";
+}
+
+function academicStatusOptionsFor(programme) {
+  return academicStatusByProgramme[programme] || academicStatusByProgramme[programmeOptions[0]];
 }
 
 function validateAdmission(admissionNumber, campus, programme) {
@@ -334,6 +341,14 @@ function selectField(name, label, options) {
   `;
 }
 
+function updateAcademicStatusOptions(programme) {
+  const academicStatusSelect = app.querySelector("#academicStatus");
+  if (!academicStatusSelect) return;
+  academicStatusSelect.innerHTML = academicStatusOptionsFor(programme)
+    .map((option) => `<option value="${htmlescape(option)}">${htmlescape(option)}</option>`)
+    .join("");
+}
+
 function passwordField(name, label) {
   return `
     <div class="field">
@@ -388,7 +403,7 @@ function renderSignup() {
         ${field("admissionNumber", "Admission number")}
         ${selectField("campus", "Campus", campusOptions)}
         ${selectField("programme", "Programme", programmeOptions)}
-        ${selectField("academicStatus", "Current academic status", academicStatusOptions)}
+        ${selectField("academicStatus", "Current academic status", academicStatusOptionsFor(programmeOptions[0]))}
         ${field("email", "Email address", "email", "", "autocomplete=\"email\"")}
         ${field("phone", "Mobile number", "tel", "", "inputmode=\"tel\"")}
         ${passwordField("password", "Password")}
@@ -844,6 +859,12 @@ app.addEventListener("submit", (event) => {
   if (event.target.id === "signupForm") handleSignup(event);
   if (event.target.id === "loginForm") handleLogin(event);
   if (event.target.id === "forgotForm") handleForgot(event);
+});
+
+app.addEventListener("change", (event) => {
+  if (event.target.name === "programme") {
+    updateAcademicStatusOptions(event.target.value);
+  }
 });
 
 app.addEventListener("input", (event) => {
