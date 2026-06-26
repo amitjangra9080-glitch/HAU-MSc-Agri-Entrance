@@ -332,7 +332,7 @@ function renderSignup() {
   app.innerHTML = `
     <section class="screen">
       ${topbar("Create Account", "Student details", "welcome")}
-      <form class="form" id="signupForm">
+      <div class="form" id="signupForm">
         ${field("displayName", "Display name")}
         ${field("admissionNumber", "Admission number")}
         ${selectField("campus", "Campus", campusOptions)}
@@ -343,9 +343,9 @@ function renderSignup() {
         ${passwordField("password", "Password")}
         ${passwordField("confirmPassword", "Confirm password")}
         <div class="notice">Accounts stay inactive until email verification is complete.</div>
-        <div class="error" data-error="form"></div>
-        <button class="button" type="submit">Create Account</button>
-      </form>
+        <div class="form-status" data-error="form">Ready to create account.</div>
+        <button class="button" type="button" id="createAccountButton">Create Account</button>
+      </div>
     </section>
   `;
 }
@@ -509,6 +509,12 @@ function setError(name, value) {
   }
 }
 
+function setButtonBusy(button, busy) {
+  if (!button) return;
+  button.disabled = busy;
+  button.textContent = busy ? "Creating..." : "Create Account";
+}
+
 function friendlyFirebaseError(error) {
   const code = error?.code || "";
   const message = error?.message || "";
@@ -522,13 +528,24 @@ function friendlyFirebaseError(error) {
 }
 
 function collectForm(form) {
-  return Object.fromEntries(new FormData(form).entries());
+  const fields = form.querySelectorAll("input[name], select[name]");
+  return Object.fromEntries([...fields].map((field) => [field.name, field.value]));
 }
 
-async function handleSignup(event) {
-  event.preventDefault();
+async function handleSignup(eventOrForm) {
+  eventOrForm?.preventDefault?.();
+  const form = eventOrForm?.currentTarget?.id === "signupForm"
+    ? eventOrForm.currentTarget
+    : app.querySelector("#signupForm");
+  const button = app.querySelector("#createAccountButton");
+  if (!form) {
+    setError("form", "Signup form was not found. Reload the page and try again.");
+    return;
+  }
   setError("form", "");
-  const data = collectForm(event.currentTarget);
+  setButtonBusy(button, true);
+  setError("form", `Button received. Starting validation at ${new Date().toLocaleTimeString()}.`);
+  const data = collectForm(form);
   data.admissionNumber = normalizeAdmissionNumber(data.admissionNumber);
   data.phone = normalizePhone(data.phone);
   data.email = data.email.trim().toLowerCase();
@@ -543,16 +560,18 @@ async function handleSignup(event) {
   Object.entries(errors).forEach(([name, value]) => setError(name, value));
   if (Object.values(errors).some(Boolean)) {
     setError("form", "Please fix the highlighted fields above.");
+    setButtonBusy(button, false);
     return;
   }
   try {
-    setError("form", "Creating account...");
+    setError("form", `Validation passed. Firebase mode: ${state.firebaseReady ? "connected" : "demo"}. Creating account...`);
     if (state.firebaseReady) await signupFirebase(data);
     else await signupDemo(data);
     render();
   } catch (error) {
     console.error("Signup failed", error);
     setError("form", friendlyFirebaseError(error));
+    setButtonBusy(button, false);
   }
 }
 
@@ -642,6 +661,10 @@ app.addEventListener("click", async (event) => {
   if (event.target.id === "changeEmail") {
     state.route = "signup";
     render();
+  }
+
+  if (event.target.id === "createAccountButton") {
+    handleSignup(event);
   }
 });
 
