@@ -51,7 +51,7 @@ const icons = {
 };
 
 const optionKeys = ["A", "B", "C", "D"];
-let attemptPersistQueue = Promise.resolve();
+let attemptAutosaveTimer = null;
 const testTicker = setInterval(syncTestTimer, 1000);
 
 function saveDemoUsers() {
@@ -214,23 +214,28 @@ async function loadTestAttempt(paperId) {
 async function saveTestAttempt(attempt) {
   const nextAttempt = { ...attempt, updatedAtMs: Date.now() };
   state.currentAttempt = nextAttempt;
-  const snapshot = JSON.parse(JSON.stringify(nextAttempt));
-  attemptPersistQueue = attemptPersistQueue.catch(() => {}).then(async () => {
-    if (state.firebaseReady) {
-      await state.db.setDoc(testAttemptRef(snapshot.paperId), snapshot);
-    } else {
-      localStorage.setItem(demoAttemptKey(snapshot.paperId), JSON.stringify(snapshot));
-    }
-  });
-  await attemptPersistQueue;
+  if (state.firebaseReady) {
+    await state.db.setDoc(testAttemptRef(nextAttempt.paperId), nextAttempt);
+  } else {
+    localStorage.setItem(demoAttemptKey(nextAttempt.paperId), JSON.stringify(nextAttempt));
+  }
   return nextAttempt;
 }
 
 function saveTestAttemptQuietly(attempt) {
-  saveTestAttempt(attempt).catch((error) => {
-    console.error("Test autosave failed", error);
-    state.testMessage = "Autosave is having trouble. Your latest tap is still kept on this device.";
-  });
+  state.currentAttempt = { ...attempt, updatedAtMs: Date.now() };
+  clearTimeout(attemptAutosaveTimer);
+  attemptAutosaveTimer = setTimeout(() => {
+    saveTestAttempt(state.currentAttempt).catch((error) => {
+      console.error("Test autosave failed", error);
+      state.testMessage = "Autosave is having trouble. Your latest tap is still kept on this device.";
+    });
+  }, 350);
+}
+
+function cancelPendingAttemptAutosave() {
+  clearTimeout(attemptAutosaveTimer);
+  attemptAutosaveTimer = null;
 }
 
 function applyAttemptPatch(patch) {
@@ -323,6 +328,7 @@ async function submitAttempt(reason = "manual") {
   state.testSubmitting = true;
   try {
     await recordQuestionTime();
+    cancelPendingAttemptAutosave();
     const paper = selectedTestPaper();
     const result = calculateResult(state.currentAttempt, paper);
     await saveTestAttempt({
@@ -911,7 +917,9 @@ function renderSubmitSummary() {
       </div>
       <div class="notice">Once submitted, the test cannot be resumed or edited.</div>
       <div class="stack">
-        <button class="button danger" type="button" id="confirmSubmitTest">Submit Now</button>
+        <button class="button danger" type="button" id="confirmSubmitTest" ${state.testSubmitting ? "disabled" : ""}>
+          ${state.testSubmitting ? "Submitting..." : "Submit Now"}
+        </button>
         <button class="button secondary" type="button" id="cancelSubmitTest">Continue Test</button>
       </div>
     </section>
@@ -1395,6 +1403,9 @@ app.addEventListener("click", async (event) => {
   }
 
   if (event.target.id === "confirmSubmitTest") {
+    state.testSubmitting = true;
+    renderSubmitSummary();
+    state.testSubmitting = false;
     await submitAttempt("manual");
     return;
   }
