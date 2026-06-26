@@ -494,9 +494,21 @@ function setError(name, value) {
   const element = app.querySelector(`[data-error="${name}"]`);
   if (!element) return;
   element.textContent = value || "";
+  element.classList.toggle("status-message", Boolean(value) && name === "form");
   if (value && name === "form") {
     element.scrollIntoView({ block: "center", behavior: "smooth" });
   }
+}
+
+function friendlyFirebaseError(error) {
+  const code = error?.code || "";
+  const message = error?.message || "";
+  if (code.includes("auth/email-already-in-use")) return "This email is already linked to an account. Sign in instead.";
+  if (code.includes("auth/operation-not-allowed")) return "Email/password sign-in is not enabled in Firebase Authentication.";
+  if (code.includes("auth/invalid-email")) return "Valid email format required.";
+  if (code.includes("permission-denied")) return "Firestore blocked this write. I need to adjust the security rules.";
+  if (code.includes("unavailable") || message.includes("network")) return "Firebase network request failed. Check internet connection and try again.";
+  return message || "Account could not be created. Try again.";
 }
 
 function collectForm(form) {
@@ -529,7 +541,8 @@ async function handleSignup(event) {
     else await signupDemo(data);
     render();
   } catch (error) {
-    setError("form", error.message);
+    console.error("Signup failed", error);
+    setError("form", friendlyFirebaseError(error));
   }
 }
 
@@ -547,7 +560,7 @@ async function handleLogin(event) {
     render();
   } catch (error) {
     if (state.route === "verify") render();
-    else setError("form", error.message || "Invalid admission number or password.");
+    else setError("form", friendlyFirebaseError(error) || "Invalid admission number or password.");
   }
 }
 
