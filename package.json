@@ -1,0 +1,17 @@
+{
+  "name": "hau-msc-agri-entrance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HAU M.Sc Agri Entrance mobile PYQ app.",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve .",
+    "deploy:vercel": "vercel --prod",
+    "deploy:firebase": "firebase deploy",
+    "deploy:firebase:rules": "firebase deploy --only firestore:rules,storage",
+    "deploy:firebase:hosting": "firebase deploy --only hosting"
+  },
+  "devDependencies": {
+    "serve": "^14.2.5"
+  }
+}

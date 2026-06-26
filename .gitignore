@@ -1,0 +1,7 @@
+node_modules/
+.vercel/
+.firebase/
+firebase-debug.log
+*.local
+.DS_Store
+scripts/__pycache__/
