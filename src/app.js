@@ -65,18 +65,18 @@ function programmeCode(programme) {
 }
 
 function validateAdmission(admissionNumber, campus, programme) {
-  if (!admissionNumber) return "Enter your admission number.";
-  if (!admissionPattern.test(admissionNumber)) return "Use the correct format, for example 2022A59BIV.";
+  if (!admissionNumber) return "Invalid admission number.";
+  if (!admissionPattern.test(admissionNumber)) return "Invalid admission number.";
   const expectedPrefix = campusPrefix(campus);
   if (expectedPrefix && !admissionNumber.startsWith(expectedPrefix)) {
-    return "Selected campus must match the admission-number prefix.";
+    return "Invalid admission number.";
   }
   if (!expectedPrefix && /^[BK]/.test(admissionNumber)) {
-    return "Hisar admission number should not start with B or K.";
+    return "Invalid admission number.";
   }
   const selectedProgrammeCode = admissionNumber.match(/B(IV|VI)R?$/)?.[1] || "";
   if (selectedProgrammeCode !== programmeCode(programme)) {
-    return "Selected programme must match IV or VI.";
+    return "Invalid admission number.";
   }
   return "";
 }
@@ -387,6 +387,7 @@ function renderVerify() {
         <div class="notice">
           <strong>Verification email has been sent</strong><br />
           ${htmlescape(email)}<br /><br />
+          Please check your inbox and spam folder.<br /><br />
           No app access is allowed before verification.
         </div>
         <button class="button" id="markVerified">I have verified my email</button>
@@ -404,7 +405,7 @@ function renderForgot() {
       ${topbar("Forgot Password", "Recover through admission number", "login")}
       <form class="form" id="forgotForm">
         ${field("admissionNumber", "Admission number")}
-        <div class="notice">A reset link will be sent to the verified email linked with this admission number.</div>
+        <div class="notice">A reset link will be sent to the email linked with this admission number. Please check your inbox and spam folder.</div>
         <div class="error" data-error="form"></div>
         <button class="button" type="submit">Send Reset Link</button>
       </form>
@@ -667,14 +668,33 @@ async function handleLogin(event) {
   }
 }
 
-function handleForgot(event) {
+async function handleForgot(event) {
   event.preventDefault();
   const admissionNumber = normalizeAdmissionNumber(collectForm(event.currentTarget).admissionNumber);
-  const user = state.demoUsers.find((entry) => entry.admissionNumber === admissionNumber);
-  const message = user
-    ? `A password-reset link has been sent to ${maskEmail(user.email)}.`
-    : "If the admission number is linked to a verified email, a reset link will be sent.";
-  setError("form", message);
+  if (!admissionNumber || !admissionPattern.test(admissionNumber)) {
+    setError("admissionNumber", "Invalid admission number.");
+    return;
+  }
+  setError("admissionNumber", "");
+  setError("form", "Sending reset link...");
+  try {
+    if (state.firebaseReady) {
+      const admissionSnap = await state.db.getDoc(state.db.doc(state.firestore, "admissionNumbers", admissionNumber));
+      if (admissionSnap.exists() && admissionSnap.data().email) {
+        await state.auth.sendPasswordResetEmail(state.firebaseAuth, admissionSnap.data().email);
+      }
+      setError("form", "If the admission number is linked to an account, a reset email has been sent. Please check your inbox and spam folder.");
+      return;
+    }
+    const user = state.demoUsers.find((entry) => entry.admissionNumber === admissionNumber);
+    const message = user
+      ? `A password-reset link has been sent to ${maskEmail(user.email)}. Please check your inbox and spam folder.`
+      : "If the admission number is linked to an account, a reset email has been sent. Please check your inbox and spam folder.";
+    setError("form", message);
+  } catch (error) {
+    console.error("Password reset failed", error);
+    setError("form", friendlyFirebaseError(error));
+  }
 }
 
 app.addEventListener("click", async (event) => {
