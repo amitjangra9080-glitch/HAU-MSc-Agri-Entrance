@@ -146,30 +146,39 @@ async function signupFirebase(data) {
   const { auth, db, firebaseAuth, firestore } = state;
   const admissionRef = db.doc(firestore, "admissionNumbers", data.admissionNumber);
   const phoneRef = db.doc(firestore, "phones", data.phone);
-  const [admissionSnap, phoneSnap] = await Promise.all([db.getDoc(admissionRef), db.getDoc(phoneRef)]);
-  if (admissionSnap.exists()) throw new Error("An account already exists with this admission number. Sign in or reset your password.");
-  if (phoneSnap.exists()) throw new Error("This phone number is already linked to an account. Sign in or recover your account.");
-
   const credential = await auth.createUserWithEmailAndPassword(firebaseAuth, data.email, data.password);
   await auth.updateProfile(credential.user, { displayName: data.displayName });
-  await db.setDoc(db.doc(firestore, "users", credential.user.uid), {
-    uid: credential.user.uid,
-    displayName: data.displayName,
-    admissionNumber: data.admissionNumber,
-    campus: data.campus,
-    programme: data.programme,
-    academicStatus: data.academicStatus,
-    email: data.email,
-    phone: data.phone,
-    active: false,
-    deactivated: false,
-    createdAt: db.serverTimestamp()
+
+  try {
+    const [admissionSnap, phoneSnap] = await Promise.all([db.getDoc(admissionRef), db.getDoc(phoneRef)]);
+    if (admissionSnap.exists()) throw new Error("An account already exists with this admission number. Sign in or reset your password.");
+    if (phoneSnap.exists()) throw new Error("This phone number is already linked to an account. Sign in or recover your account.");
+
+    await db.setDoc(db.doc(firestore, "users", credential.user.uid), {
+      uid: credential.user.uid,
+      displayName: data.displayName,
+      admissionNumber: data.admissionNumber,
+      campus: data.campus,
+      programme: data.programme,
+      academicStatus: data.academicStatus,
+      email: data.email,
+      phone: data.phone,
+      active: false,
+      deactivated: false,
+      createdAt: db.serverTimestamp()
+    });
+    await Promise.all([
+      db.setDoc(admissionRef, { uid: credential.user.uid }),
+      db.setDoc(phoneRef, { uid: credential.user.uid })
+    ]);
+  } catch (error) {
+    await auth.deleteUser(credential.user).catch(() => {});
+    throw error;
+  }
+
+  await auth.sendEmailVerification(credential.user).catch((error) => {
+    console.warn("Verification email could not be sent", error);
   });
-  await Promise.all([
-    db.setDoc(admissionRef, { uid: credential.user.uid }),
-    db.setDoc(phoneRef, { uid: credential.user.uid })
-  ]);
-  await auth.sendEmailVerification(credential.user);
   state.user = { ...data, uid: credential.user.uid, emailVerified: false };
   state.route = "verify";
 }
@@ -503,12 +512,13 @@ function setError(name, value) {
 function friendlyFirebaseError(error) {
   const code = error?.code || "";
   const message = error?.message || "";
+  const suffix = code ? ` (${code})` : "";
   if (code.includes("auth/email-already-in-use")) return "This email is already linked to an account. Sign in instead.";
   if (code.includes("auth/operation-not-allowed")) return "Email/password sign-in is not enabled in Firebase Authentication.";
   if (code.includes("auth/invalid-email")) return "Valid email format required.";
-  if (code.includes("permission-denied")) return "Firestore blocked this write. I need to adjust the security rules.";
-  if (code.includes("unavailable") || message.includes("network")) return "Firebase network request failed. Check internet connection and try again.";
-  return message || "Account could not be created. Try again.";
+  if (code.includes("permission-denied")) return `Firestore blocked this write. I need to adjust the security rules.${suffix}`;
+  if (code.includes("unavailable") || message.includes("network")) return `Firebase network request failed. Check internet connection and try again.${suffix}`;
+  return `${message || "Account could not be created. Try again."}${suffix}`;
 }
 
 function collectForm(form) {
