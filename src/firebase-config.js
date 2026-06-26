@@ -1,5 +1,5 @@
 window.firebaseConfig = {
-  apiKey: "AIzaSyDoMkLKRxZGOZJLLlP6cGQ_gxBahxUG-T8",
+  apiKey: "AIzaSyDoMklKRxZG0ZJLLlP6cGQ_gxBahxUG-T8",
   authDomain: "hau-msc-agri-entrance.firebaseapp.com",
   projectId: "hau-msc-agri-entrance",
   storageBucket: "hau-msc-agri-entrance.firebasestorage.app",
