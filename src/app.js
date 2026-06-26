@@ -9,6 +9,7 @@ const state = {
   selectedPaperId: null,
   globalSearch: "",
   paperSearch: "",
+  questionNavOpen: false,
   auth: null,
   db: null,
   firebaseReady: false,
@@ -96,9 +97,19 @@ function maskEmail(email) {
 
 function questionText(question) {
   return [
+    `Q${question.number}`,
+    `Q.${question.number}`,
+    String(question.number),
     question.question,
     ...Object.entries(question.options || {}).map(([key, value]) => `${key} ${value}`)
   ].join(" ");
+}
+
+function questionMatchesSearch(question, query) {
+  const cleanQuery = query.trim().toLowerCase();
+  const numberQuery = cleanQuery.match(/^q\.?\s*(\d+)$/)?.[1] || cleanQuery.match(/^\d+$/)?.[0];
+  if (numberQuery && Number(numberQuery) === Number(question.number)) return true;
+  return questionText(question).toLowerCase().includes(cleanQuery);
 }
 
 function selectedPaper() {
@@ -522,7 +533,7 @@ function renderPaper() {
   const paper = selectedPaper();
   const query = state.paperSearch.trim().toLowerCase();
   const questions = query
-    ? paper.questions.filter((question) => questionText(question).toLowerCase().includes(query))
+    ? paper.questions.filter((question) => questionMatchesSearch(question, query))
     : paper.questions;
   app.innerHTML = `
     <section class="screen">
@@ -534,14 +545,38 @@ function renderPaper() {
       <div class="question-list">
         ${questions.map((question) => renderQuestionCard({ ...question, paperTitle: paper.title, year: paper.year, set: paper.set })).join("") || `<div class="empty">No matches found.</div>`}
       </div>
+      <button class="question-nav-handle" type="button" id="questionNavOpen">Q.No</button>
+      ${renderQuestionNav(paper)}
       ${bottomNav("home")}
     </section>
   `;
 }
 
+function renderQuestionNav(paper) {
+  return `
+    <div class="question-nav-layer ${state.questionNavOpen ? "open" : ""}" aria-hidden="${state.questionNavOpen ? "false" : "true"}">
+      <button class="question-nav-backdrop" type="button" id="questionNavClose" aria-label="Close question navigation"></button>
+      <aside class="question-nav-panel">
+        <div class="question-nav-head">
+          <div>
+            <h2>Questions</h2>
+            <p>Jump to question</p>
+          </div>
+          <button class="icon-button" type="button" id="questionNavCloseButton" aria-label="Close">${icons.close}</button>
+        </div>
+        <div class="question-number-grid">
+          ${paper.questions
+            .map((question) => `<button type="button" data-jump-question="${question.number}">${question.number}</button>`)
+            .join("")}
+        </div>
+      </aside>
+    </div>
+  `;
+}
+
 function renderQuestionCard(question) {
   return `
-    <article class="question-card">
+    <article class="question-card" id="question-${question.number}">
       <div class="q-meta"><span>${htmlescape(question.paperTitle || "")}</span><span>Q.${question.number}</span></div>
       <h2>${htmlescape(question.question)}</h2>
       <div class="options">
@@ -721,8 +756,32 @@ app.addEventListener("click", async (event) => {
   if (paperButton) {
     state.selectedPaperId = paperButton.dataset.paper;
     state.paperSearch = "";
+    state.questionNavOpen = false;
     state.route = "paper";
     render();
+    return;
+  }
+
+  if (event.target.id === "questionNavOpen") {
+    state.questionNavOpen = true;
+    renderPaper();
+    return;
+  }
+
+  if (event.target.id === "questionNavClose" || event.target.id === "questionNavCloseButton") {
+    state.questionNavOpen = false;
+    renderPaper();
+    return;
+  }
+
+  const jumpButton = event.target.closest("[data-jump-question]");
+  if (jumpButton) {
+    const questionNumber = jumpButton.dataset.jumpQuestion;
+    state.questionNavOpen = false;
+    renderPaper();
+    requestAnimationFrame(() => {
+      app.querySelector(`#question-${questionNumber}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     return;
   }
 
