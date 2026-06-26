@@ -1,0 +1,12 @@
+.firebase/
+.git/
+.github/
+.vercel/
+firebase-debug.log
+firebase.json
+firestore.rules
+storage.rules
+DEPLOYMENT.md
+scripts/
+*.docx
+*.local
