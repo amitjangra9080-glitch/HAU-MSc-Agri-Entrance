@@ -102,6 +102,11 @@ button {
   transform: translateY(1px);
 }
 
+.button:disabled {
+  opacity: 0.58;
+  transform: none;
+}
+
 .button.secondary {
   background: #fff;
   color: var(--primary);

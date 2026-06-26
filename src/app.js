@@ -177,8 +177,13 @@ function demoAttemptKey(paperId) {
   return `hau_test_attempt_${testAttemptId(paperId)}`;
 }
 
+function testCloseMarkerKey(paperId) {
+  return `hau_pending_test_pause_${testAttemptId(paperId)}`;
+}
+
 function blankAttempt(paper) {
   const now = Date.now();
+  const durationMs = testDurationMs(paper);
   return {
     uid: state.user.uid,
     paperId: paper.id,
@@ -187,9 +192,13 @@ function blankAttempt(paper) {
     set: paper.set,
     status: "active",
     questionCount: paper.questions.length,
-    durationMs: testDurationMs(paper),
+    durationMs,
+    remainingMs: durationMs,
+    pauseCount: 0,
+    lastPauseAtMs: null,
+    activeStartedAtMs: now,
     startedAtMs: now,
-    expiresAtMs: now + testDurationMs(paper),
+    expiresAtMs: now + durationMs,
     submittedAtMs: null,
     currentQuestion: 1,
     answers: {},
@@ -200,6 +209,20 @@ function blankAttempt(paper) {
     createdAtMs: now,
     updatedAtMs: now
   };
+}
+
+function remainingAttemptMs(attempt) {
+  if (!attempt) return 0;
+  if (attempt.status === "paused") return Math.max(0, attempt.remainingMs || 0);
+  return Math.max(0, (attempt.expiresAtMs || 0) - Date.now());
+}
+
+function timeTakenMs(attempt) {
+  const duration = attempt.durationMs || 0;
+  const remaining = attempt.status === "submitted"
+    ? Math.max(0, attempt.remainingMs || 0)
+    : remainingAttemptMs(attempt);
+  return Math.max(0, duration - remaining);
 }
 
 async function loadTestAttempt(paperId) {
@@ -316,7 +339,7 @@ function calculateResult(attempt, paper) {
     unattempted,
     accuracy: attempted ? Math.round((correct / attempted) * 10000) / 100 : 0,
     percentageScore: Math.round((score / total) * 10000) / 100,
-    timeTakenMs: Math.min(Date.now(), attempt.expiresAtMs) - attempt.startedAtMs,
+    timeTakenMs: timeTakenMs(attempt),
     sectionPerformance: { Overall: { correct, incorrect, unattempted, total } },
     review
   };
@@ -348,14 +371,14 @@ async function submitAttempt(reason = "manual") {
 
 function syncTestTimer() {
   if (state.route !== "test-taking" || !state.currentAttempt || state.currentAttempt.status !== "active") return;
-  const remainingMs = state.currentAttempt.expiresAtMs - Date.now();
+  const remainingMs = remainingAttemptMs(state.currentAttempt);
   const timer = document.querySelector("#testTimer");
   if (timer) timer.textContent = formatDuration(remainingMs);
   if (remainingMs <= 0) submitAttempt("timeout");
 }
 
 async function ensureAttemptFresh() {
-  if (state.currentAttempt?.status === "active" && Date.now() >= state.currentAttempt.expiresAtMs) {
+  if (state.currentAttempt?.status === "active" && remainingAttemptMs(state.currentAttempt) <= 0) {
     await submitAttempt("timeout");
   }
 }
@@ -793,7 +816,8 @@ function renderTestIntro() {
   const paper = selectedTestPaper();
   const attempt = state.currentAttempt;
   const submitted = attempt?.status === "submitted";
-  const active = attempt?.status === "active";
+  const resumable = attempt?.status === "active" || attempt?.status === "paused";
+  const pauseCount = attempt?.pauseCount || 0;
   app.innerHTML = `
     <section class="screen">
       ${topbar("Test Instructions", paper.title, "tests")}
@@ -803,19 +827,21 @@ function renderTestIntro() {
         <div><span>Time limit</span><strong>${formatDuration(testDurationMs(paper))}</strong></div>
         <div><span>Negative marking</span><strong>0</strong></div>
         <div><span>Allowed attempts</span><strong>Only one</strong></div>
+        <div><span>Pause used</span><strong>${pauseCount}/2</strong></div>
+        <div><span>Time left</span><strong>${attempt ? formatDuration(remainingAttemptMs(attempt)) : formatDuration(testDurationMs(paper))}</strong></div>
       </div>
       <div class="notice">
         <strong>Scoring formula</strong><br />
         Correct answer: +1<br />
         Incorrect answer: 0<br />
         Unattempted answer: 0<br /><br />
-        The timer begins immediately after Start Test. It continues after refresh and the test auto-submits when time expires.
+        The timer begins after Start Test. Pausing stops the timer, and each test can be paused only 2 times.
       </div>
       <div class="stack">
         ${
           submitted
             ? `<button class="button" type="button" id="viewTestResult">View Result</button>`
-            : active
+            : resumable
               ? `<button class="button" type="button" id="resumeTest">Resume Test</button>`
               : `<button class="button" type="button" id="startTest">Start Test</button>`
         }
@@ -836,7 +862,7 @@ function renderTestTaking() {
   }
   const question = activeQuestion();
   const selectedAnswer = attempt.answers?.[question.number] || "";
-  const remainingMs = attempt.expiresAtMs - Date.now();
+  const remainingMs = remainingAttemptMs(attempt);
   if (remainingMs <= 0) {
     submitAttempt("timeout");
     return;
@@ -869,6 +895,9 @@ function renderTestTaking() {
       </div>
       <button class="question-nav-handle test-palette-handle" type="button" id="testPaletteOpen">Palette</button>
       ${renderTestPalette(paper, attempt)}
+      <button class="button secondary test-submit-button" type="button" id="pauseTestButton" ${Number(attempt.pauseCount || 0) >= 2 ? "disabled" : ""}>
+        ${Number(attempt.pauseCount || 0) >= 2 ? "Pause limit reached" : "Pause Test"}
+      </button>
       <button class="button danger test-submit-button" type="button" id="openSubmitSummary">Submit Test</button>
     </section>
   `;
@@ -1216,7 +1245,8 @@ async function handleForgot(event) {
 async function openTestPaper(paperId) {
   state.selectedTestPaperId = paperId;
   state.testMessage = "";
-  const attempt = await loadTestAttempt(paperId);
+  let attempt = await loadTestAttempt(paperId);
+  attempt = await reconcileClosedTestPause(attempt, paperId);
   state.currentAttempt = attempt;
   if (attempt?.status === "submitted") {
     state.route = "test-result";
@@ -1240,6 +1270,18 @@ async function startOrResumeTest() {
     render();
     return;
   }
+  const now = Date.now();
+  const remainingMs = attempt.status === "paused"
+    ? Math.max(0, attempt.remainingMs || testDurationMs(paper))
+    : remainingAttemptMs(attempt);
+  attempt = {
+    ...attempt,
+    status: "active",
+    remainingMs,
+    activeStartedAtMs: now,
+    expiresAtMs: now + remainingMs
+  };
+  await saveTestAttempt(attempt);
   state.currentAttempt = attempt;
   state.testQuestionNumber = attempt.currentQuestion || 1;
   state.testQuestionStartedAt = Date.now();
@@ -1262,6 +1304,75 @@ function recordQuestionTime() {
   timeSpent[questionNumber] = (timeSpent[questionNumber] || 0) + elapsed;
   state.testQuestionStartedAt = Date.now();
   saveTestAttemptQuietly({ ...state.currentAttempt, timeSpent });
+}
+
+async function pauseActiveTest(source = "manual") {
+  if (!state.currentAttempt || state.currentAttempt.status !== "active") return;
+  if (Number(state.currentAttempt.pauseCount || 0) >= 2) {
+    state.testMessage = "Pause limit reached. You cannot pause this test again. Continue or submit the test.";
+    renderTestTaking();
+    return;
+  }
+  recordQuestionTime();
+  cancelPendingAttemptAutosave();
+  const remainingMs = remainingAttemptMs(state.currentAttempt);
+  const attempt = {
+    ...state.currentAttempt,
+    status: "paused",
+    remainingMs,
+    pauseCount: Number(state.currentAttempt.pauseCount || 0) + 1,
+    lastPauseAtMs: Date.now(),
+    lastPauseSource: source,
+    activeStartedAtMs: null,
+    expiresAtMs: null
+  };
+  await saveTestAttempt(attempt);
+  localStorage.removeItem(testCloseMarkerKey(attempt.paperId));
+  state.currentAttempt = attempt;
+  state.testMessage = `Test paused. Pauses used: ${attempt.pauseCount}/2.`;
+  state.route = "test-intro";
+  render();
+}
+
+async function reconcileClosedTestPause(attempt, paperId) {
+  if (!attempt || attempt.status !== "active") return attempt;
+  const markerKey = testCloseMarkerKey(paperId);
+  const marker = JSON.parse(localStorage.getItem(markerKey) || "null");
+  if (!marker) return attempt;
+  localStorage.removeItem(markerKey);
+  const pauseCount = Number(attempt.pauseCount || 0);
+  if (pauseCount >= 2) {
+    state.currentAttempt = {
+      ...attempt,
+      remainingMs: Math.max(0, marker.remainingMs || remainingAttemptMs(attempt))
+    };
+    await submitAttempt("pause-limit");
+    state.testMessage = "Pause limit was already used. The test was submitted automatically.";
+    return state.currentAttempt;
+  }
+  const pausedAttempt = {
+    ...attempt,
+    status: "paused",
+    remainingMs: Math.max(0, marker.remainingMs || remainingAttemptMs(attempt)),
+    pauseCount: pauseCount + 1,
+    lastPauseAtMs: marker.atMs || Date.now(),
+    lastPauseSource: "closed-app",
+    activeStartedAtMs: null,
+    expiresAtMs: null
+  };
+  await saveTestAttempt(pausedAttempt);
+  state.testMessage = `Test paused because the app was closed. Pauses used: ${pausedAttempt.pauseCount}/2.`;
+  return pausedAttempt;
+}
+
+function rememberActiveTestClose() {
+  const attempt = state.currentAttempt;
+  if (!attempt || attempt.status !== "active" || state.route !== "test-taking") return;
+  localStorage.setItem(testCloseMarkerKey(attempt.paperId), JSON.stringify({
+    paperId: attempt.paperId,
+    remainingMs: remainingAttemptMs(attempt),
+    atMs: Date.now()
+  }));
 }
 
 function moveTestQuestion(nextNumber) {
@@ -1368,6 +1479,18 @@ app.addEventListener("click", async (event) => {
 
   if (event.target.id === "markTestReview") {
     await toggleReview();
+    return;
+  }
+
+  if (event.target.id === "pauseTestButton") {
+    if (Number(state.currentAttempt?.pauseCount || 0) >= 2) {
+      state.testMessage = "Pause limit reached. You cannot pause this test again. Continue or submit the test.";
+      renderTestTaking();
+      return;
+    }
+    if (window.confirm("Pause this test? Timer will stop and this will use 1 of your 2 pauses.")) {
+      await pauseActiveTest("manual");
+    }
     return;
   }
 
@@ -1519,6 +1642,9 @@ app.addEventListener("input", (event) => {
     refocusInput("paperSearch");
   }
 });
+
+window.addEventListener("pagehide", rememberActiveTestClose);
+window.addEventListener("beforeunload", rememberActiveTestClose);
 
 async function boot() {
   if (Array.isArray(window.HAU_PAPERS)) {
