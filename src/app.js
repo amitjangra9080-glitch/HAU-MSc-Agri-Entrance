@@ -10,6 +10,13 @@ const state = {
   globalSearch: "",
   paperSearch: "",
   questionNavOpen: false,
+  selectedTestPaperId: null,
+  currentAttempt: null,
+  testQuestionNumber: 1,
+  testQuestionStartedAt: Date.now(),
+  testPaletteOpen: false,
+  testMessage: "",
+  testTick: Date.now(),
   auth: null,
   db: null,
   firebaseReady: false,
@@ -38,8 +45,17 @@ const icons = {
   search: "⌕",
   close: "×",
   home: "⌂",
+  test: "□",
   user: "♙"
 };
+
+const optionKeys = ["A", "B", "C", "D"];
+const testTicker = setInterval(() => {
+  if (state.route === "test-taking") {
+    state.testTick = Date.now();
+    renderTestTaking();
+  }
+}, 1000);
 
 function saveDemoUsers() {
   localStorage.setItem("hau_demo_users", JSON.stringify(state.demoUsers));
@@ -133,6 +149,172 @@ function allQuestions() {
       set: paper.set
     }))
   );
+}
+
+function selectedTestPaper() {
+  return state.papers.find((paper) => paper.id === state.selectedTestPaperId) || state.papers[0];
+}
+
+function testDurationMs(paper) {
+  return paper.questions.length > 100 ? 2 * 60 * 60 * 1000 : 80 * 60 * 1000;
+}
+
+function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours) return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function testAttemptId(paperId) {
+  return `${state.user?.uid || "demo"}_${paperId}`;
+}
+
+function testAttemptRef(paperId) {
+  return state.db.doc(state.firestore, "testAttempts", testAttemptId(paperId));
+}
+
+function demoAttemptKey(paperId) {
+  return `hau_test_attempt_${testAttemptId(paperId)}`;
+}
+
+function blankAttempt(paper) {
+  const now = Date.now();
+  return {
+    uid: state.user.uid,
+    paperId: paper.id,
+    paperTitle: paper.title,
+    year: paper.year,
+    set: paper.set,
+    status: "active",
+    questionCount: paper.questions.length,
+    durationMs: testDurationMs(paper),
+    startedAtMs: now,
+    expiresAtMs: now + testDurationMs(paper),
+    submittedAtMs: null,
+    currentQuestion: 1,
+    answers: {},
+    markedForReview: {},
+    visited: { 1: true },
+    timeSpent: {},
+    result: null,
+    createdAtMs: now,
+    updatedAtMs: now
+  };
+}
+
+async function loadTestAttempt(paperId) {
+  if (!state.user) return null;
+  if (state.firebaseReady) {
+    const snap = await state.db.getDoc(testAttemptRef(paperId));
+    return snap.exists() ? snap.data() : null;
+  }
+  return JSON.parse(localStorage.getItem(demoAttemptKey(paperId)) || "null");
+}
+
+async function saveTestAttempt(attempt) {
+  const nextAttempt = { ...attempt, updatedAtMs: Date.now() };
+  state.currentAttempt = nextAttempt;
+  if (state.firebaseReady) {
+    await state.db.setDoc(testAttemptRef(nextAttempt.paperId), nextAttempt);
+  } else {
+    localStorage.setItem(demoAttemptKey(nextAttempt.paperId), JSON.stringify(nextAttempt));
+  }
+  return nextAttempt;
+}
+
+function activeQuestion() {
+  const paper = selectedTestPaper();
+  return paper.questions.find((question) => Number(question.number) === Number(state.testQuestionNumber)) || paper.questions[0];
+}
+
+function questionStatus(attempt, questionNumber) {
+  const visited = Boolean(attempt.visited?.[questionNumber]);
+  const answered = Boolean(attempt.answers?.[questionNumber]);
+  const marked = Boolean(attempt.markedForReview?.[questionNumber]);
+  if (answered && marked) return "answered-review";
+  if (marked) return "review";
+  if (answered) return "answered";
+  if (visited) return "not-answered";
+  return "not-visited";
+}
+
+function statusLabel(status) {
+  return {
+    "not-visited": "Not visited",
+    "not-answered": "Not answered",
+    answered: "Answered",
+    review: "Marked for review",
+    "answered-review": "Answered and marked for review"
+  }[status] || status;
+}
+
+function attemptStatusCounts(attempt, paper) {
+  return paper.questions.reduce((counts, question) => {
+    const status = questionStatus(attempt, question.number);
+    counts[status] += 1;
+    return counts;
+  }, { "not-visited": 0, "not-answered": 0, answered: 0, review: 0, "answered-review": 0 });
+}
+
+function calculateResult(attempt, paper) {
+  let correct = 0;
+  let incorrect = 0;
+  let unattempted = 0;
+  const review = {};
+  paper.questions.forEach((question) => {
+    const selected = attempt.answers?.[question.number] || "";
+    const isCorrect = selected && selected === question.correctOption;
+    if (!selected) unattempted += 1;
+    else if (isCorrect) correct += 1;
+    else incorrect += 1;
+    review[question.number] = {
+      selected,
+      correctOption: question.correctOption,
+      isCorrect: Boolean(isCorrect),
+      timeSpentMs: attempt.timeSpent?.[question.number] || 0
+    };
+  });
+  const total = paper.questions.length;
+  const attempted = correct + incorrect;
+  const score = correct;
+  return {
+    score,
+    totalMarks: total,
+    correct,
+    incorrect,
+    unattempted,
+    accuracy: attempted ? Math.round((correct / attempted) * 10000) / 100 : 0,
+    percentageScore: Math.round((score / total) * 10000) / 100,
+    timeTakenMs: Math.min(Date.now(), attempt.expiresAtMs) - attempt.startedAtMs,
+    sectionPerformance: { Overall: { correct, incorrect, unattempted, total } },
+    review
+  };
+}
+
+async function submitAttempt(reason = "manual") {
+  if (!state.currentAttempt || state.currentAttempt.status === "submitted") return;
+  await recordQuestionTime();
+  const paper = selectedTestPaper();
+  const result = calculateResult(state.currentAttempt, paper);
+  await saveTestAttempt({
+    ...state.currentAttempt,
+    status: "submitted",
+    submittedAtMs: Date.now(),
+    submitReason: reason,
+    result,
+    locked: true
+  });
+  state.route = "test-result";
+  render();
+}
+
+async function ensureAttemptFresh() {
+  if (state.currentAttempt?.status === "active" && Date.now() >= state.currentAttempt.expiresAtMs) {
+    await submitAttempt("timeout");
+  }
 }
 
 async function initFirebase() {
@@ -311,6 +493,10 @@ function bottomNav(activeRoute) {
         <span class="nav-icon">${icons.home}</span>
         <span>Home</span>
       </button>
+      <button class="nav-item ${activeRoute === "tests" ? "active" : ""}" type="button" data-route="tests" aria-label="Tests">
+        <span class="nav-icon">${icons.test}</span>
+        <span>Tests</span>
+      </button>
       <button class="nav-item ${activeRoute === "profile" ? "active" : ""}" type="button" data-route="profile" aria-label="Profile">
         <span class="nav-icon">${icons.user}</span>
         <span>Profile</span>
@@ -386,7 +572,7 @@ function renderLogin() {
         ${field("admissionNumber", "Admission number", "text", "", "autocomplete=\"username\"")}
         ${passwordField("password", "Password")}
         <div class="error" data-error="form"></div>
-        <button class="button" type="submit">Sign In</button>
+        <button class="button" type="submit" id="loginButton">Sign In</button>
         <button class="button ghost" type="button" data-route="forgot">Forgot Password</button>
         <button class="button secondary" type="button" data-route="signup">Create Account</button>
       </form>
@@ -463,7 +649,6 @@ function renderHome() {
       <div class="topbar">
         <div class="top-title">
           <h1>HAU M.Sc Agri Entrance</h1>
-          <p>${state.firebaseReady ? "Firebase connected" : "Demo mode until Firebase is connected"}</p>
         </div>
       </div>
       <div class="home-head">
@@ -528,6 +713,211 @@ function renderProfile() {
       <button class="button danger profile-logout" id="logoutButton" type="button">Log out</button>
       ${bottomNav("profile")}
     </section>
+  `;
+}
+
+function renderTests() {
+  app.innerHTML = `
+    <section class="screen">
+      <div class="topbar">
+        <div class="top-title">
+          <h1>Tests</h1>
+          <p>Attempt each PYP once</p>
+        </div>
+      </div>
+      <div class="paper-list">
+        ${state.papers.map((paper) => renderTestPaperCard(paper)).join("")}
+      </div>
+      ${bottomNav("tests")}
+    </section>
+  `;
+}
+
+function renderTestPaperCard(paper) {
+  return `
+    <button class="paper-card" data-test-paper="${paper.id}">
+      <h2>${htmlescape(paper.title)}</h2>
+      <p>${paper.questions.length} questions · ${paper.questions.length} marks · ${formatDuration(testDurationMs(paper))}</p>
+      <div class="pill-row">
+        <span class="pill">One attempt</span>
+        <span class="pill">No negative marking</span>
+      </div>
+    </button>
+  `;
+}
+
+function renderTestIntro() {
+  const paper = selectedTestPaper();
+  const attempt = state.currentAttempt;
+  const submitted = attempt?.status === "submitted";
+  const active = attempt?.status === "active";
+  app.innerHTML = `
+    <section class="screen">
+      ${topbar("Test Instructions", paper.title, "tests")}
+      <div class="test-summary">
+        <div><span>Questions</span><strong>${paper.questions.length}</strong></div>
+        <div><span>Total marks</span><strong>${paper.questions.length}</strong></div>
+        <div><span>Time limit</span><strong>${formatDuration(testDurationMs(paper))}</strong></div>
+        <div><span>Negative marking</span><strong>0</strong></div>
+        <div><span>Allowed attempts</span><strong>Only one</strong></div>
+      </div>
+      <div class="notice">
+        <strong>Scoring formula</strong><br />
+        Correct answer: +1<br />
+        Incorrect answer: 0<br />
+        Unattempted answer: 0<br /><br />
+        The timer begins immediately after Start Test. It continues after refresh and the test auto-submits when time expires.
+      </div>
+      <div class="stack">
+        ${
+          submitted
+            ? `<button class="button" type="button" id="viewTestResult">View Result</button>`
+            : active
+              ? `<button class="button" type="button" id="resumeTest">Resume Test</button>`
+              : `<button class="button" type="button" id="startTest">Start Test</button>`
+        }
+        <button class="button secondary" type="button" data-route="tests">Back to Tests</button>
+      </div>
+      ${state.testMessage ? `<div class="form-status status-message">${htmlescape(state.testMessage)}</div>` : ""}
+      ${bottomNav("tests")}
+    </section>
+  `;
+}
+
+function renderTestTaking() {
+  const paper = selectedTestPaper();
+  const attempt = state.currentAttempt;
+  if (!attempt) {
+    renderTestIntro();
+    return;
+  }
+  const question = activeQuestion();
+  const selectedAnswer = attempt.answers?.[question.number] || "";
+  const remainingMs = attempt.expiresAtMs - Date.now();
+  if (remainingMs <= 0) {
+    submitAttempt("timeout");
+    return;
+  }
+  app.innerHTML = `
+    <section class="screen test-screen">
+      <div class="test-topbar">
+        <div>
+          <h1>${htmlescape(paper.title)}</h1>
+          <p>Q.${question.number} of ${paper.questions.length}</p>
+        </div>
+        <strong>${formatDuration(remainingMs)}</strong>
+      </div>
+      <article class="test-question-card">
+        <h2>${htmlescape(question.question)}</h2>
+        <div class="test-options">
+          ${optionKeys.map((key) => `
+            <button class="${selectedAnswer === key ? "selected" : ""}" type="button" data-test-answer="${key}">
+              <span>${key}</span>
+              <strong>${htmlescape(question.options?.[key] || "")}</strong>
+            </button>
+          `).join("")}
+        </div>
+      </article>
+      <div class="test-actions">
+        <button class="button secondary" type="button" id="prevTestQuestion">Previous</button>
+        <button class="button secondary" type="button" id="clearTestAnswer">Clear</button>
+        <button class="button secondary" type="button" id="markTestReview">${attempt.markedForReview?.[question.number] ? "Unmark" : "Mark"}</button>
+        <button class="button" type="button" id="nextTestQuestion">Next</button>
+      </div>
+      <button class="question-nav-handle test-palette-handle" type="button" id="testPaletteOpen">Palette</button>
+      ${renderTestPalette(paper, attempt)}
+      <button class="button danger test-submit-button" type="button" id="openSubmitSummary">Submit Test</button>
+    </section>
+  `;
+}
+
+function renderTestPalette(paper, attempt) {
+  return `
+    <div class="question-nav-layer ${state.testPaletteOpen ? "open" : ""}" aria-hidden="${state.testPaletteOpen ? "false" : "true"}">
+      <button class="question-nav-backdrop" type="button" id="testPaletteClose" aria-label="Close test palette"></button>
+      <aside class="question-nav-panel">
+        <div class="question-nav-head">
+          <div>
+            <h2>Palette</h2>
+            <p>Open any question</p>
+          </div>
+          <button class="icon-button" type="button" id="testPaletteCloseButton" aria-label="Close">${icons.close}</button>
+        </div>
+        <div class="palette-legend">
+          <span class="legend-dot answered"></span>Answered
+          <span class="legend-dot review"></span>Review
+          <span class="legend-dot not-answered"></span>Not answered
+        </div>
+        <div class="question-number-grid test-number-grid">
+          ${paper.questions.map((question) => `
+            <button class="${questionStatus(attempt, question.number)} ${Number(question.number) === Number(state.testQuestionNumber) ? "current" : ""}" type="button" data-test-jump="${question.number}">
+              ${question.number}
+            </button>
+          `).join("")}
+        </div>
+      </aside>
+    </div>
+  `;
+}
+
+function renderSubmitSummary() {
+  const paper = selectedTestPaper();
+  const counts = attemptStatusCounts(state.currentAttempt, paper);
+  app.innerHTML = `
+    <section class="screen">
+      ${topbar("Submit Test", "Confirm final submission", "")}
+      <div class="status-table">
+        <div><span>Answered</span><strong>${counts.answered + counts["answered-review"]}</strong></div>
+        <div><span>Not answered</span><strong>${counts["not-answered"]}</strong></div>
+        <div><span>Marked for review</span><strong>${counts.review + counts["answered-review"]}</strong></div>
+        <div><span>Not visited</span><strong>${counts["not-visited"]}</strong></div>
+      </div>
+      <div class="notice">Once submitted, the test cannot be resumed or edited.</div>
+      <div class="stack">
+        <button class="button danger" type="button" id="confirmSubmitTest">Submit Now</button>
+        <button class="button secondary" type="button" id="cancelSubmitTest">Continue Test</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderTestResult() {
+  const paper = selectedTestPaper();
+  const attempt = state.currentAttempt;
+  const result = attempt?.result || calculateResult(attempt, paper);
+  app.innerHTML = `
+    <section class="screen">
+      ${topbar("Result", paper.title, "tests")}
+      <div class="result-score">
+        <span>Score</span>
+        <strong>${result.score}/${result.totalMarks}</strong>
+      </div>
+      <div class="test-summary">
+        <div><span>Correct</span><strong>${result.correct}</strong></div>
+        <div><span>Incorrect</span><strong>${result.incorrect}</strong></div>
+        <div><span>Unattempted</span><strong>${result.unattempted}</strong></div>
+        <div><span>Accuracy</span><strong>${result.accuracy}%</strong></div>
+        <div><span>Percentage</span><strong>${result.percentageScore}%</strong></div>
+        <div><span>Time taken</span><strong>${formatDuration(result.timeTakenMs)}</strong></div>
+      </div>
+      <div class="question-list">
+        ${paper.questions.map((question) => renderResultQuestion(question, result.review?.[question.number] || {})).join("")}
+      </div>
+      ${bottomNav("tests")}
+    </section>
+  `;
+}
+
+function renderResultQuestion(question, review) {
+  return `
+    <article class="question-card">
+      <div class="q-meta"><span>Q.${question.number}</span><span>${review.isCorrect ? "Correct" : review.selected ? "Incorrect" : "Unattempted"}</span></div>
+      <h2>${htmlescape(question.question)}</h2>
+      <div class="answer-line">Your answer: ${htmlescape(review.selected || "Not attempted")}</div>
+      <div class="answer-line">Correct answer: ${htmlescape(question.correctOption)}</div>
+      <div class="answer-line">Time spent: ${formatDuration(review.timeSpentMs || 0)}</div>
+      <div class="notice">Explanation, reference and topic will appear here after they are added.</div>
+    </article>
   `;
 }
 
@@ -621,6 +1011,11 @@ function render() {
     verify: renderVerify,
     forgot: renderForgot,
     home: renderHome,
+    tests: renderTests,
+    "test-intro": renderTestIntro,
+    "test-taking": renderTestTaking,
+    "test-submit": renderSubmitSummary,
+    "test-result": renderTestResult,
     profile: renderProfile,
     paper: renderPaper
   };
@@ -650,6 +1045,12 @@ function setButtonBusy(button, busy) {
   if (!button) return;
   button.disabled = busy;
   button.textContent = busy ? "Creating..." : "Create Account";
+}
+
+function setLoginBusy(button, busy) {
+  if (!button) return;
+  button.disabled = busy;
+  button.textContent = busy ? "Signing in..." : "Sign In";
 }
 
 function friendlyFirebaseError(error) {
@@ -715,18 +1116,26 @@ async function handleSignup(eventOrForm) {
 async function handleLogin(event) {
   event.preventDefault();
   setError("form", "");
+  const button = app.querySelector("#loginButton");
+  setLoginBusy(button, true);
   const data = collectForm(event.currentTarget);
   const admissionNumber = normalizeAdmissionNumber(data.admissionNumber);
   setError("admissionNumber", admissionNumber ? "" : "Enter your admission number.");
   setError("password", data.password ? "" : "Enter your password.");
-  if (!admissionNumber || !data.password) return;
+  if (!admissionNumber || !data.password) {
+    setLoginBusy(button, false);
+    return;
+  }
   try {
     if (state.firebaseReady) await loginFirebase(admissionNumber, data.password);
     else await loginDemo(admissionNumber, data.password);
     render();
   } catch (error) {
     if (state.route === "verify") render();
-    else setError("form", friendlyFirebaseError(error) || "Invalid admission number or password.");
+    else {
+      setError("form", friendlyFirebaseError(error) || "Invalid admission number or password.");
+      setLoginBusy(button, false);
+    }
   }
 }
 
@@ -759,6 +1168,108 @@ async function handleForgot(event) {
   }
 }
 
+async function openTestPaper(paperId) {
+  state.selectedTestPaperId = paperId;
+  state.testMessage = "";
+  const attempt = await loadTestAttempt(paperId);
+  state.currentAttempt = attempt;
+  if (attempt?.status === "submitted") {
+    state.route = "test-result";
+  } else {
+    state.testQuestionNumber = attempt?.currentQuestion || 1;
+    state.testQuestionStartedAt = Date.now();
+    state.route = "test-intro";
+  }
+  render();
+}
+
+async function startOrResumeTest() {
+  const paper = selectedTestPaper();
+  let attempt = state.currentAttempt;
+  if (!attempt) {
+    attempt = blankAttempt(paper);
+    await saveTestAttempt(attempt);
+  }
+  if (attempt.status === "submitted") {
+    state.route = "test-result";
+    render();
+    return;
+  }
+  state.currentAttempt = attempt;
+  state.testQuestionNumber = attempt.currentQuestion || 1;
+  state.testQuestionStartedAt = Date.now();
+  state.testPaletteOpen = false;
+  state.route = "test-taking";
+  await ensureAttemptFresh();
+  render();
+}
+
+async function patchActiveAttempt(patch) {
+  const attempt = {
+    ...state.currentAttempt,
+    ...patch,
+    answers: { ...(state.currentAttempt.answers || {}), ...(patch.answers || {}) },
+    markedForReview: { ...(state.currentAttempt.markedForReview || {}), ...(patch.markedForReview || {}) },
+    visited: { ...(state.currentAttempt.visited || {}), ...(patch.visited || {}) },
+    timeSpent: { ...(state.currentAttempt.timeSpent || {}), ...(patch.timeSpent || {}) }
+  };
+  await saveTestAttempt(attempt);
+}
+
+async function recordQuestionTime() {
+  if (!state.currentAttempt || state.currentAttempt.status !== "active") return;
+  const elapsed = Math.max(0, Date.now() - state.testQuestionStartedAt);
+  if (elapsed < 500) return;
+  const questionNumber = state.testQuestionNumber;
+  const timeSpent = { ...(state.currentAttempt.timeSpent || {}) };
+  timeSpent[questionNumber] = (timeSpent[questionNumber] || 0) + elapsed;
+  state.testQuestionStartedAt = Date.now();
+  await saveTestAttempt({ ...state.currentAttempt, timeSpent });
+}
+
+async function moveTestQuestion(nextNumber) {
+  await recordQuestionTime();
+  const paper = selectedTestPaper();
+  const bounded = Math.min(Math.max(Number(nextNumber), 1), paper.questions.length);
+  state.testQuestionNumber = bounded;
+  state.testQuestionStartedAt = Date.now();
+  await patchActiveAttempt({
+    currentQuestion: bounded,
+    visited: { [bounded]: true }
+  });
+  await ensureAttemptFresh();
+  renderTestTaking();
+}
+
+async function selectTestAnswer(answer) {
+  await recordQuestionTime();
+  const question = activeQuestion();
+  await patchActiveAttempt({
+    answers: { [question.number]: answer },
+    visited: { [question.number]: true }
+  });
+  renderTestTaking();
+}
+
+async function clearTestAnswer() {
+  await recordQuestionTime();
+  const question = activeQuestion();
+  const answers = { ...(state.currentAttempt.answers || {}) };
+  delete answers[question.number];
+  await saveTestAttempt({ ...state.currentAttempt, answers });
+  renderTestTaking();
+}
+
+async function toggleReview() {
+  await recordQuestionTime();
+  const question = activeQuestion();
+  const markedForReview = { ...(state.currentAttempt.markedForReview || {}) };
+  if (markedForReview[question.number]) delete markedForReview[question.number];
+  else markedForReview[question.number] = true;
+  await saveTestAttempt({ ...state.currentAttempt, markedForReview });
+  renderTestTaking();
+}
+
 app.addEventListener("click", async (event) => {
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
@@ -775,6 +1286,85 @@ app.addEventListener("click", async (event) => {
     state.route = "paper";
     render();
     requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+    return;
+  }
+
+  const testPaperButton = event.target.closest("[data-test-paper]");
+  if (testPaperButton) {
+    await openTestPaper(testPaperButton.dataset.testPaper);
+    return;
+  }
+
+  if (event.target.id === "startTest" || event.target.id === "resumeTest") {
+    await startOrResumeTest();
+    return;
+  }
+
+  if (event.target.id === "viewTestResult") {
+    state.route = "test-result";
+    render();
+    return;
+  }
+
+  const answerButton = event.target.closest("[data-test-answer]");
+  if (answerButton) {
+    await selectTestAnswer(answerButton.dataset.testAnswer);
+    return;
+  }
+
+  if (event.target.id === "prevTestQuestion") {
+    await moveTestQuestion(state.testQuestionNumber - 1);
+    return;
+  }
+
+  if (event.target.id === "nextTestQuestion") {
+    await moveTestQuestion(state.testQuestionNumber + 1);
+    return;
+  }
+
+  if (event.target.id === "clearTestAnswer") {
+    await clearTestAnswer();
+    return;
+  }
+
+  if (event.target.id === "markTestReview") {
+    await toggleReview();
+    return;
+  }
+
+  if (event.target.id === "testPaletteOpen") {
+    state.testPaletteOpen = true;
+    renderTestTaking();
+    return;
+  }
+
+  if (event.target.id === "testPaletteClose" || event.target.id === "testPaletteCloseButton") {
+    state.testPaletteOpen = false;
+    renderTestTaking();
+    return;
+  }
+
+  const testJumpButton = event.target.closest("[data-test-jump]");
+  if (testJumpButton) {
+    state.testPaletteOpen = false;
+    await moveTestQuestion(Number(testJumpButton.dataset.testJump));
+    return;
+  }
+
+  if (event.target.id === "openSubmitSummary") {
+    state.route = "test-submit";
+    renderSubmitSummary();
+    return;
+  }
+
+  if (event.target.id === "cancelSubmitTest") {
+    state.route = "test-taking";
+    renderTestTaking();
+    return;
+  }
+
+  if (event.target.id === "confirmSubmitTest") {
+    await submitAttempt("manual");
     return;
   }
 

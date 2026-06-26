@@ -35,6 +35,22 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /testAttempts/{attemptId} {
+      allow get: if signedIn()
+        && attemptId.matches(request.auth.uid + "_.*");
+      allow list: if false;
+      allow create: if signedIn()
+        && attemptId.matches(request.auth.uid + "_.*")
+        && request.resource.data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/testAttempts/$(attemptId));
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.paperId == resource.data.paperId
+        && resource.data.locked != true;
+      allow delete: if false;
+    }
+
     match /appState/{document=**} {
       allow read, write: if false;
     }
