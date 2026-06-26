@@ -45,7 +45,7 @@ button {
 
 .screen {
   min-height: 100vh;
-  padding: 18px 16px 96px;
+  padding: 18px 16px 112px;
 }
 
 .welcome {
@@ -273,6 +273,46 @@ button {
   background: linear-gradient(180deg, rgba(247, 245, 239, 0), var(--bg) 24%);
 }
 
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: min(100%, 480px);
+  transform: translateX(-50%);
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(221, 216, 203, 0.9);
+  background: rgba(247, 245, 239, 0.98);
+  backdrop-filter: blur(14px);
+}
+
+.nav-item {
+  min-height: 52px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.nav-item.active {
+  border-color: rgba(49, 95, 58, 0.18);
+  background: var(--soft);
+  color: var(--primary-dark);
+}
+
+.nav-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
 .home-head {
   display: grid;
   gap: 12px;
@@ -329,6 +369,81 @@ button {
   display: grid;
   gap: 10px;
   margin-top: 16px;
+}
+
+.profile-card,
+.profile-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.profile-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 18px 14px;
+  text-align: center;
+}
+
+.profile-avatar {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.profile-card h2 {
+  margin: 6px 0 0;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 650;
+}
+
+.profile-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.profile-list {
+  display: grid;
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.profile-row {
+  display: grid;
+  gap: 4px;
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.profile-row:last-child {
+  border-bottom: 0;
+}
+
+.profile-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.profile-row strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 620;
+  overflow-wrap: anywhere;
+}
+
+.profile-logout {
+  margin-top: 18px;
 }
 
 .paper-card,

@@ -33,6 +33,7 @@ const icons = {
   back: "‹",
   search: "⌕",
   close: "×",
+  home: "⌂",
   user: "◦"
 };
 
@@ -272,6 +273,21 @@ function topbar(title, subtitle = "", backRoute = "") {
   `;
 }
 
+function bottomNav(activeRoute) {
+  return `
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="nav-item ${activeRoute === "home" ? "active" : ""}" type="button" data-route="home" aria-label="Home">
+        <span class="nav-icon">${icons.home}</span>
+        <span>Home</span>
+      </button>
+      <button class="nav-item ${activeRoute === "profile" ? "active" : ""}" type="button" data-route="profile" aria-label="Profile">
+        <span class="nav-icon">${icons.user}</span>
+        <span>Profile</span>
+      </button>
+    </nav>
+  `;
+}
+
 function field(name, label, type = "text", value = "", attrs = "") {
   return `
     <div class="field">
@@ -409,7 +425,6 @@ function renderHome() {
           <h1>HAU M.Sc Agri Entrance</h1>
           <p>${state.firebaseReady ? "Firebase connected" : "Demo mode until Firebase is connected"}</p>
         </div>
-        <button class="icon-button" id="logoutButton" aria-label="Sign out">${icons.user}</button>
       </div>
       <div class="home-head">
         <div class="search">
@@ -427,6 +442,51 @@ function renderHome() {
           ? `<div class="question-list">${results.slice(0, 80).map(renderQuestionCard).join("") || `<div class="empty">No matches found.</div>`}</div>`
           : `<div class="paper-list">${papers.map(renderPaperCard).join("")}</div>`
       }
+      ${bottomNav("home")}
+    </section>
+  `;
+}
+
+function profileRow(label, value) {
+  return `
+    <div class="profile-row">
+      <span>${htmlescape(label)}</span>
+      <strong>${htmlescape(value || "Not available")}</strong>
+    </div>
+  `;
+}
+
+function renderProfile() {
+  const user = state.user || {};
+  if (!state.user) {
+    state.route = "welcome";
+    render();
+    return;
+  }
+  app.innerHTML = `
+    <section class="screen app-screen">
+      <div class="topbar">
+        <div class="top-title">
+          <h1>Profile</h1>
+          <p>Your student details</p>
+        </div>
+      </div>
+      <div class="profile-card">
+        <div class="profile-avatar">${htmlescape((user.displayName || "H").trim().slice(0, 1).toUpperCase())}</div>
+        <h2>${htmlescape(user.displayName || "Student")}</h2>
+        <p>${htmlescape(user.admissionNumber || "")}</p>
+      </div>
+      <div class="profile-list">
+        ${profileRow("Display name", user.displayName)}
+        ${profileRow("Admission number", user.admissionNumber)}
+        ${profileRow("Campus", user.campus)}
+        ${profileRow("Programme", user.programme)}
+        ${profileRow("Current academic status", user.academicStatus)}
+        ${profileRow("Email address", user.email)}
+        ${profileRow("Indian mobile number", user.phone)}
+      </div>
+      <button class="button danger profile-logout" id="logoutButton" type="button">Log out</button>
+      ${bottomNav("profile")}
     </section>
   `;
 }
@@ -460,6 +520,7 @@ function renderPaper() {
       <div class="question-list">
         ${questions.map((question) => renderQuestionCard({ ...question, paperTitle: paper.title, year: paper.year, set: paper.set })).join("") || `<div class="empty">No matches found.</div>`}
       </div>
+      ${bottomNav("home")}
     </section>
   `;
 }
@@ -496,6 +557,7 @@ function render() {
     verify: renderVerify,
     forgot: renderForgot,
     home: renderHome,
+    profile: renderProfile,
     paper: renderPaper
   };
   routes[state.route]();
