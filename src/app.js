@@ -133,7 +133,15 @@ async function initFirebase() {
   state.firebaseReady = true;
 
   authModule.onAuthStateChanged(state.firebaseAuth, async (firebaseUser) => {
-    if (!firebaseUser) return;
+    if (!firebaseUser) {
+      state.user = null;
+      return;
+    }
+    if (localStorage.getItem("hau_signed_out") === "true") {
+      await authModule.signOut(state.firebaseAuth).catch(() => {});
+      state.user = null;
+      return;
+    }
     try {
       const profileRef = firestoreModule.doc(state.firestore, "users", firebaseUser.uid);
       const profileSnap = await firestoreModule.getDoc(profileRef);
@@ -150,6 +158,7 @@ async function initFirebase() {
 
 async function signupFirebase(data) {
   const { auth, db, firebaseAuth, firestore } = state;
+  localStorage.removeItem("hau_signed_out");
   const admissionRef = db.doc(firestore, "admissionNumbers", data.admissionNumber);
   const phoneRef = db.doc(firestore, "phones", data.phone);
   const credential = await auth.createUserWithEmailAndPassword(firebaseAuth, data.email, data.password);
@@ -191,6 +200,7 @@ async function signupFirebase(data) {
 
 async function loginFirebase(admissionNumber, password) {
   const { auth, db, firebaseAuth, firestore } = state;
+  localStorage.removeItem("hau_signed_out");
   const admissionSnap = await db.getDoc(db.doc(firestore, "admissionNumbers", admissionNumber));
   if (!admissionSnap.exists()) throw new Error("Invalid admission number or password.");
   const admissionData = admissionSnap.data();
@@ -222,6 +232,7 @@ async function loginFirebase(admissionNumber, password) {
 }
 
 async function signupDemo(data) {
+  localStorage.removeItem("hau_signed_out");
   if (state.demoUsers.some((user) => user.admissionNumber === data.admissionNumber)) {
     throw new Error("An account already exists with this admission number. Sign in or reset your password.");
   }
@@ -239,6 +250,7 @@ async function signupDemo(data) {
 }
 
 async function loginDemo(admissionNumber, password) {
+  localStorage.removeItem("hau_signed_out");
   const user = state.demoUsers.find((entry) => entry.admissionNumber === admissionNumber && entry.password === password);
   if (!user) throw new Error("Invalid admission number or password.");
   if (!user.emailVerified) {
@@ -723,6 +735,12 @@ app.addEventListener("click", async (event) => {
   }
 
   if (event.target.id === "logoutButton") {
+    localStorage.setItem("hau_signed_out", "true");
+    if (state.firebaseReady && state.firebaseAuth.currentUser) {
+      await state.auth.signOut(state.firebaseAuth).catch((error) => {
+        console.warn("Firebase sign out failed", error);
+      });
+    }
     state.user = null;
     state.route = "welcome";
     localStorage.removeItem("hau_active_session");
