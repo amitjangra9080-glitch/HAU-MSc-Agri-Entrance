@@ -17,6 +17,7 @@ const state = {
   testPaletteOpen: false,
   testMessage: "",
   testTick: Date.now(),
+  testSubmitting: false,
   auth: null,
   db: null,
   firebaseReady: false,
@@ -50,12 +51,8 @@ const icons = {
 };
 
 const optionKeys = ["A", "B", "C", "D"];
-const testTicker = setInterval(() => {
-  if (state.route === "test-taking") {
-    state.testTick = Date.now();
-    renderTestTaking();
-  }
-}, 1000);
+let attemptPersistQueue = Promise.resolve();
+const testTicker = setInterval(syncTestTimer, 1000);
 
 function saveDemoUsers() {
   localStorage.setItem("hau_demo_users", JSON.stringify(state.demoUsers));
@@ -217,12 +214,38 @@ async function loadTestAttempt(paperId) {
 async function saveTestAttempt(attempt) {
   const nextAttempt = { ...attempt, updatedAtMs: Date.now() };
   state.currentAttempt = nextAttempt;
-  if (state.firebaseReady) {
-    await state.db.setDoc(testAttemptRef(nextAttempt.paperId), nextAttempt);
-  } else {
-    localStorage.setItem(demoAttemptKey(nextAttempt.paperId), JSON.stringify(nextAttempt));
-  }
+  const snapshot = JSON.parse(JSON.stringify(nextAttempt));
+  attemptPersistQueue = attemptPersistQueue.catch(() => {}).then(async () => {
+    if (state.firebaseReady) {
+      await state.db.setDoc(testAttemptRef(snapshot.paperId), snapshot);
+    } else {
+      localStorage.setItem(demoAttemptKey(snapshot.paperId), JSON.stringify(snapshot));
+    }
+  });
+  await attemptPersistQueue;
   return nextAttempt;
+}
+
+function saveTestAttemptQuietly(attempt) {
+  saveTestAttempt(attempt).catch((error) => {
+    console.error("Test autosave failed", error);
+    state.testMessage = "Autosave is having trouble. Your latest tap is still kept on this device.";
+  });
+}
+
+function applyAttemptPatch(patch) {
+  const attempt = {
+    ...state.currentAttempt,
+    ...patch,
+    answers: { ...(state.currentAttempt.answers || {}), ...(patch.answers || {}) },
+    markedForReview: { ...(state.currentAttempt.markedForReview || {}), ...(patch.markedForReview || {}) },
+    visited: { ...(state.currentAttempt.visited || {}), ...(patch.visited || {}) },
+    timeSpent: { ...(state.currentAttempt.timeSpent || {}), ...(patch.timeSpent || {}) },
+    updatedAtMs: Date.now()
+  };
+  state.currentAttempt = attempt;
+  saveTestAttemptQuietly(attempt);
+  return attempt;
 }
 
 function activeQuestion() {
@@ -296,19 +319,33 @@ function calculateResult(attempt, paper) {
 
 async function submitAttempt(reason = "manual") {
   if (!state.currentAttempt || state.currentAttempt.status === "submitted") return;
-  await recordQuestionTime();
-  const paper = selectedTestPaper();
-  const result = calculateResult(state.currentAttempt, paper);
-  await saveTestAttempt({
-    ...state.currentAttempt,
-    status: "submitted",
-    submittedAtMs: Date.now(),
-    submitReason: reason,
-    result,
-    locked: true
-  });
-  state.route = "test-result";
-  render();
+  if (state.testSubmitting) return;
+  state.testSubmitting = true;
+  try {
+    await recordQuestionTime();
+    const paper = selectedTestPaper();
+    const result = calculateResult(state.currentAttempt, paper);
+    await saveTestAttempt({
+      ...state.currentAttempt,
+      status: "submitted",
+      submittedAtMs: Date.now(),
+      submitReason: reason,
+      result,
+      locked: true
+    });
+    state.route = "test-result";
+    render();
+  } finally {
+    state.testSubmitting = false;
+  }
+}
+
+function syncTestTimer() {
+  if (state.route !== "test-taking" || !state.currentAttempt || state.currentAttempt.status !== "active") return;
+  const remainingMs = state.currentAttempt.expiresAtMs - Date.now();
+  const timer = document.querySelector("#testTimer");
+  if (timer) timer.textContent = formatDuration(remainingMs);
+  if (remainingMs <= 0) submitAttempt("timeout");
 }
 
 async function ensureAttemptFresh() {
@@ -805,7 +842,7 @@ function renderTestTaking() {
           <h1>${htmlescape(paper.title)}</h1>
           <p>Q.${question.number} of ${paper.questions.length}</p>
         </div>
-        <strong>${formatDuration(remainingMs)}</strong>
+        <strong id="testTimer">${formatDuration(remainingMs)}</strong>
       </div>
       <article class="test-question-card">
         <h2>${htmlescape(question.question)}</h2>
@@ -1204,19 +1241,11 @@ async function startOrResumeTest() {
   render();
 }
 
-async function patchActiveAttempt(patch) {
-  const attempt = {
-    ...state.currentAttempt,
-    ...patch,
-    answers: { ...(state.currentAttempt.answers || {}), ...(patch.answers || {}) },
-    markedForReview: { ...(state.currentAttempt.markedForReview || {}), ...(patch.markedForReview || {}) },
-    visited: { ...(state.currentAttempt.visited || {}), ...(patch.visited || {}) },
-    timeSpent: { ...(state.currentAttempt.timeSpent || {}), ...(patch.timeSpent || {}) }
-  };
-  await saveTestAttempt(attempt);
+function patchActiveAttempt(patch) {
+  return applyAttemptPatch(patch);
 }
 
-async function recordQuestionTime() {
+function recordQuestionTime() {
   if (!state.currentAttempt || state.currentAttempt.status !== "active") return;
   const elapsed = Math.max(0, Date.now() - state.testQuestionStartedAt);
   if (elapsed < 500) return;
@@ -1224,49 +1253,51 @@ async function recordQuestionTime() {
   const timeSpent = { ...(state.currentAttempt.timeSpent || {}) };
   timeSpent[questionNumber] = (timeSpent[questionNumber] || 0) + elapsed;
   state.testQuestionStartedAt = Date.now();
-  await saveTestAttempt({ ...state.currentAttempt, timeSpent });
+  saveTestAttemptQuietly({ ...state.currentAttempt, timeSpent });
 }
 
-async function moveTestQuestion(nextNumber) {
-  await recordQuestionTime();
+function moveTestQuestion(nextNumber) {
+  recordQuestionTime();
   const paper = selectedTestPaper();
   const bounded = Math.min(Math.max(Number(nextNumber), 1), paper.questions.length);
   state.testQuestionNumber = bounded;
   state.testQuestionStartedAt = Date.now();
-  await patchActiveAttempt({
+  patchActiveAttempt({
     currentQuestion: bounded,
     visited: { [bounded]: true }
   });
-  await ensureAttemptFresh();
+  ensureAttemptFresh();
   renderTestTaking();
 }
 
-async function selectTestAnswer(answer) {
-  await recordQuestionTime();
+function selectTestAnswer(answer) {
+  recordQuestionTime();
   const question = activeQuestion();
-  await patchActiveAttempt({
+  patchActiveAttempt({
     answers: { [question.number]: answer },
     visited: { [question.number]: true }
   });
   renderTestTaking();
 }
 
-async function clearTestAnswer() {
-  await recordQuestionTime();
+function clearTestAnswer() {
+  recordQuestionTime();
   const question = activeQuestion();
   const answers = { ...(state.currentAttempt.answers || {}) };
   delete answers[question.number];
-  await saveTestAttempt({ ...state.currentAttempt, answers });
+  state.currentAttempt = { ...state.currentAttempt, answers, updatedAtMs: Date.now() };
+  saveTestAttemptQuietly(state.currentAttempt);
   renderTestTaking();
 }
 
-async function toggleReview() {
-  await recordQuestionTime();
+function toggleReview() {
+  recordQuestionTime();
   const question = activeQuestion();
   const markedForReview = { ...(state.currentAttempt.markedForReview || {}) };
   if (markedForReview[question.number]) delete markedForReview[question.number];
   else markedForReview[question.number] = true;
-  await saveTestAttempt({ ...state.currentAttempt, markedForReview });
+  state.currentAttempt = { ...state.currentAttempt, markedForReview, updatedAtMs: Date.now() };
+  saveTestAttemptQuietly(state.currentAttempt);
   renderTestTaking();
 }
 

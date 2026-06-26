@@ -627,6 +627,7 @@ button {
   color: #111;
   font-size: 18px;
   font-weight: 650;
+  touch-action: manipulation;
 }
 
 .question-number-grid button:active {
@@ -738,6 +739,7 @@ button {
   background: #fff;
   padding: 10px;
   text-align: left;
+  touch-action: manipulation;
 }
 
 .test-options button.selected {
@@ -770,6 +772,7 @@ button {
 .test-actions .button {
   min-height: 46px;
   padding: 0 8px;
+  touch-action: manipulation;
 }
 
 .test-submit-button {
