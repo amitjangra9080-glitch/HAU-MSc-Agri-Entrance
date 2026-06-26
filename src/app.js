@@ -34,7 +34,7 @@ const icons = {
   search: "⌕",
   close: "×",
   home: "⌂",
-  user: "◦"
+  user: "♙"
 };
 
 function saveDemoUsers() {
@@ -361,13 +361,13 @@ function renderSignup() {
     <section class="screen">
       ${topbar("Create Account", "Student details", "welcome")}
       <div class="form" id="signupForm">
-        ${field("displayName", "Display name")}
+        ${field("displayName", "Full Name")}
         ${field("admissionNumber", "Admission number")}
         ${selectField("campus", "Campus", campusOptions)}
         ${selectField("programme", "Programme", programmeOptions)}
         ${selectField("academicStatus", "Current academic status", academicStatusOptions)}
         ${field("email", "Email address", "email", "", "autocomplete=\"email\"")}
-        ${field("phone", "Indian mobile number", "tel", "", "inputmode=\"tel\"")}
+        ${field("phone", "Mobile number", "tel", "", "inputmode=\"tel\"")}
         ${passwordField("password", "Password")}
         ${passwordField("confirmPassword", "Confirm password")}
         <div class="notice">Accounts stay inactive until email verification is complete.</div>
@@ -385,7 +385,7 @@ function renderVerify() {
       ${topbar("Check your email", "Verification required", "login")}
       <div class="stack">
         <div class="notice">
-          <strong>Verification link sent</strong><br />
+          <strong>Verification email has been sent</strong><br />
           ${htmlescape(email)}<br /><br />
           No app access is allowed before verification.
         </div>
@@ -478,13 +478,13 @@ function renderProfile() {
         <p>${htmlescape(user.admissionNumber || "")}</p>
       </div>
       <div class="profile-list">
-        ${profileRow("Display name", user.displayName)}
+        ${profileRow("Full Name", user.displayName)}
         ${profileRow("Admission number", user.admissionNumber)}
         ${profileRow("Campus", user.campus)}
         ${profileRow("Programme", user.programme)}
         ${profileRow("Current academic status", user.academicStatus)}
         ${profileRow("Email address", user.email)}
-        ${profileRow("Indian mobile number", user.phone)}
+        ${profileRow("Mobile number", user.phone)}
       </div>
       <button class="button danger profile-logout" id="logoutButton" type="button">Log out</button>
       ${bottomNav("profile")}
