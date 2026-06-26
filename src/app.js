@@ -16,7 +16,7 @@ const state = {
   activeSession: localStorage.getItem("hau_active_session") || ""
 };
 
-const admissionPattern = /^(?:B|K)?\d{4}A(?:[1-9]|[1-9]\d|1\d{2}|200)(?:IV|VI)R?$/;
+const admissionPattern = /^(?:B|K)?\d{4}A(?:[1-9]|[1-9]\d|1\d{2}|200)B(?:IV|VI)R?$/;
 const phonePattern = /^[6-9]\d{9}$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -66,7 +66,7 @@ function programmeCode(programme) {
 
 function validateAdmission(admissionNumber, campus, programme) {
   if (!admissionNumber) return "Enter your admission number.";
-  if (!admissionPattern.test(admissionNumber)) return "Use the correct admission number format.";
+  if (!admissionPattern.test(admissionNumber)) return "Use the correct format, for example 2022A59BIV.";
   const expectedPrefix = campusPrefix(campus);
   if (expectedPrefix && !admissionNumber.startsWith(expectedPrefix)) {
     return "Selected campus must match the admission-number prefix.";
@@ -74,7 +74,8 @@ function validateAdmission(admissionNumber, campus, programme) {
   if (!expectedPrefix && /^[BK]/.test(admissionNumber)) {
     return "Hisar admission number should not start with B or K.";
   }
-  if (!admissionNumber.replace(/^[BK]/, "").includes(programmeCode(programme))) {
+  const selectedProgrammeCode = admissionNumber.match(/B(IV|VI)R?$/)?.[1] || "";
+  if (selectedProgrammeCode !== programmeCode(programme)) {
     return "Selected programme must match IV or VI.";
   }
   return "";
