@@ -3,6 +3,12 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      "firestore.rules",
+      "storage.rules",
+      "firebase-debug.log",
+      "package.json",
+      "DEPLOYMENT.md",
+      "vercel.json",
       "**/.*",
       "**/node_modules/**",
       "scripts/**"
