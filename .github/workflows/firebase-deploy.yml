@@ -1,4 +1,4 @@
-name: Firebase deploy
+name: Firebase rules deploy
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,5 +26,5 @@ jobs:
         with:
           credentials_json: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_HAU_MSC_AGRI_ENTRANCE }}"
 
-      - name: Deploy Firebase Hosting and Firestore rules
-        run: firebase deploy --project hau-msc-agri-entrance --only hosting,firestore:rules --non-interactive
+      - name: Deploy Firestore rules
+        run: firebase deploy --project hau-msc-agri-entrance --only firestore:rules --non-interactive
