@@ -239,6 +239,7 @@ function blankAttempt(paper) {
     visited: { 1: true },
     timeSpent: {},
     result: null,
+    locked: false,
     createdAtMs: now,
     updatedAtMs: now
   };
@@ -270,7 +271,10 @@ async function loadTestAttempt(paperId) {
       const localIsChosen = Boolean(localAttempt && attempt === localAttempt);
       const localIsNewer = Number(localAttempt?.updatedAtMs || 0) > Number(remoteAttempt?.updatedAtMs || 0);
       if (localIsChosen && (!remoteAttempt || localIsNewer || localAttempt.locked || localAttempt.status === "submitted")) {
-        pendingAttemptSnapshot = JSON.parse(JSON.stringify(localAttempt));
+        pendingAttemptSnapshot = JSON.parse(JSON.stringify({
+          ...localAttempt,
+          locked: localAttempt.locked === true
+        }));
         attemptPersistRetryCount = 0;
         clearAttemptPersistRetry();
         persistPendingAttempt().catch((error) => {
@@ -314,7 +318,11 @@ function scheduleAttemptPersistRetry() {
 }
 
 async function saveTestAttempt(attempt) {
-  const nextAttempt = { ...attempt, updatedAtMs: Date.now() };
+  const nextAttempt = {
+    ...attempt,
+    locked: attempt.locked === true,
+    updatedAtMs: Date.now()
+  };
   state.currentAttempt = nextAttempt;
   writeLocalTestAttempt(nextAttempt);
   pendingAttemptSnapshot = JSON.parse(JSON.stringify(nextAttempt));
@@ -500,9 +508,8 @@ async function submitAttempt(reason = "manual") {
     state.testSubmitting = false;
     state.route = "test-result";
     render();
-    saveTestAttempt(submittedAttempt).catch((error) => {
+      saveTestAttempt(submittedAttempt).catch((error) => {
       console.error("Could not save submitted test", error);
-      state.testMessage = "Result is shown, but saving is having trouble. Please keep the page open.";
     });
   } catch (error) {
     console.error("Could not submit test", error);
@@ -1467,7 +1474,6 @@ async function startOrResumeTest() {
   render();
   saveTestAttempt(attempt).catch((error) => {
     console.error("Could not save test start", error);
-    state.testMessage = "Test opened, but saving is having trouble. Please keep the page open.";
   });
   await ensureAttemptFresh();
 }
@@ -1514,7 +1520,6 @@ async function pauseActiveTest(source = "manual") {
   render();
   saveTestAttempt(attempt).catch((error) => {
     console.error("Could not save paused test", error);
-    state.testMessage = "Test paused, but saving is having trouble. Please keep the page open.";
   });
 }
 
@@ -1657,7 +1662,6 @@ app.addEventListener("click", async (event) => {
     render();
     flushCurrentAttempt().catch((error) => {
       console.error("Could not save before leaving paused test window", error);
-      state.testMessage = "Test window closed, but saving is having trouble. Please keep the page open.";
     });
     return;
   }
