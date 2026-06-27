@@ -14,8 +14,12 @@ export async function GET(request) {
   try {
     const { getFirebaseAdmin } = await import("../_lib/firebase-admin.mjs");
     const services = await getFirebaseAdmin();
+
     if (!services?.app || !services?.auth || !services?.db) {
-      throw new Error("Firebase Admin services did not initialize.");
+      throw Object.assign(
+        new Error("Firebase Admin services did not initialize."),
+        { code: "firebase_services_incomplete" }
+      );
     }
 
     return jsonResponse({
@@ -29,7 +33,9 @@ export async function GET(request) {
       reason,
       errorName: String(error?.name || "Error").slice(0, 80),
       errorCode: String(error?.code || "").slice(0, 120),
-      message: String(error?.message || "Unknown error").slice(0, 240)
+      message: String(error?.message || "Unknown error").slice(0, 240),
+      causeCode: String(error?.cause?.code || "").slice(0, 120),
+      causeMessage: String(error?.cause?.message || "").slice(0, 240)
     });
 
     const payload = { ok: false, error: "service_unavailable" };
