@@ -273,13 +273,10 @@ function persistPendingAttempt() {
 
 function saveTestAttemptQuietly(attempt) {
   state.currentAttempt = { ...attempt, updatedAtMs: Date.now() };
-  clearTimeout(attemptAutosaveTimer);
-  attemptAutosaveTimer = setTimeout(() => {
-    saveTestAttempt(state.currentAttempt).catch((error) => {
-      console.error("Test autosave failed", error);
-      state.testMessage = "Autosave is having trouble. Your latest tap is still kept on this device.";
-    });
-  }, 350);
+  saveTestAttempt(state.currentAttempt).catch((error) => {
+    console.error("Test autosave failed", error);
+    state.testMessage = "Autosave is having trouble. Your latest tap is still kept on this device.";
+  });
 }
 
 function cancelPendingAttemptAutosave() {
@@ -1369,7 +1366,7 @@ function recordQuestionTime() {
   const timeSpent = { ...(state.currentAttempt.timeSpent || {}) };
   timeSpent[questionNumber] = (timeSpent[questionNumber] || 0) + elapsed;
   state.testQuestionStartedAt = Date.now();
-  saveTestAttemptQuietly({ ...state.currentAttempt, timeSpent });
+  state.currentAttempt = { ...state.currentAttempt, timeSpent, updatedAtMs: Date.now() };
 }
 
 async function pauseActiveTest(source = "manual") {
@@ -1478,8 +1475,11 @@ function clearTestAnswer() {
   const answers = { ...(state.currentAttempt.answers || {}) };
   delete answers[question.number];
   state.currentAttempt = { ...state.currentAttempt, answers, updatedAtMs: Date.now() };
-  saveTestAttemptQuietly(state.currentAttempt);
   renderTestTaking();
+  saveTestAttempt(state.currentAttempt).catch((error) => {
+    console.error("Could not save cleared answer", error);
+    state.testMessage = "Answer cleared, but saving is having trouble. Please keep the page open.";
+  });
 }
 
 function toggleReview() {
@@ -1489,8 +1489,11 @@ function toggleReview() {
   if (markedForReview[question.number]) delete markedForReview[question.number];
   else markedForReview[question.number] = true;
   state.currentAttempt = { ...state.currentAttempt, markedForReview, updatedAtMs: Date.now() };
-  saveTestAttemptQuietly(state.currentAttempt);
   renderTestTaking();
+  saveTestAttempt(state.currentAttempt).catch((error) => {
+    console.error("Could not save review mark", error);
+    state.testMessage = "Review mark changed, but saving is having trouble. Please keep the page open.";
+  });
 }
 
 app.addEventListener("click", async (event) => {
