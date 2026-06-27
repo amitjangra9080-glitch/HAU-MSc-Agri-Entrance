@@ -18,10 +18,13 @@ function createStorage() {
 async function run() {
   const data = fs.readFileSync("src/data/papers-data.js", "utf8");
   const app = fs.readFileSync("src/app.js", "utf8");
+  const handlers = {};
   const appShell = {
     innerHTML: "",
     querySelector: () => null,
-    addEventListener: () => {}
+    addEventListener: (type, handler) => {
+      handlers[type] = handler;
+    }
   };
   const context = {
     console,
@@ -33,6 +36,7 @@ async function run() {
     JSON,
     Promise,
     assert,
+    handlers,
     fetch: async () => ({ json: async () => [] }),
     crypto: { randomUUID: () => "test-uid" },
     localStorage: createStorage(),
@@ -157,6 +161,8 @@ async function run() {
       await pauseActiveTest("manual");
       assert(state.currentAttempt.status === "paused", "pause should still update UI state if save fails");
       assert(app.innerHTML.includes("Resume Test"), "failed pause save should still show paused controls");
+      await handlers.click({ target: { id: "leavePausedTest", closest: () => null } });
+      assert(state.route === "test-intro", "quit test window should leave immediately even if save fails");
       state.currentAttempt = blankAttempt(state.papers[0]);
       state.route = "test-submit";
       await submitAttempt("manual");

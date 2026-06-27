@@ -1535,9 +1535,12 @@ app.addEventListener("click", async (event) => {
   }
 
   if (event.target.id === "leavePausedTest") {
-    await flushCurrentAttempt();
     state.route = "test-intro";
     render();
+    flushCurrentAttempt().catch((error) => {
+      console.error("Could not save before leaving paused test window", error);
+      state.testMessage = "Test window closed, but saving is having trouble. Please keep the page open.";
+    });
     return;
   }
 
