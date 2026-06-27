@@ -1,46 +1,41 @@
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 import { parseServiceAccountEnv } from "./firebase-credentials.mjs";
 
 const APP_NAME = "hau-secure-auth";
 let cachedServicesPromise = null;
 
 async function initializeFirebaseAdmin() {
-  // Parse first. Missing or malformed Vercel variables then fail without
-  // attempting to load Firebase Admin, producing a precise safe reason.
   const serviceAccount = parseServiceAccountEnv();
-
-  const [appModule, authModule, firestoreModule] = await Promise.all([
-    import("firebase-admin/app"),
-    import("firebase-admin/auth"),
-    import("firebase-admin/firestore")
-  ]);
-
-  const existingApp = appModule.getApps()
-    .find((candidate) => candidate.name === APP_NAME);
-
-  const app = existingApp || appModule.initializeApp(
+  const existingApp = getApps().find((candidate) => candidate.name === APP_NAME);
+  const app = existingApp || initializeApp(
     {
-      credential: appModule.cert(serviceAccount),
+      credential: cert(serviceAccount),
       projectId: serviceAccount.projectId
     },
     APP_NAME
   );
 
-  return Object.freeze({
-    app,
-    auth: authModule.getAuth(app),
-    db: firestoreModule.getFirestore(app)
-  });
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Force local RSA signing now. This catches corrupted or mismatched PEM data
+  // during the health check instead of during a later registration request.
+  const token = await auth.createCustomToken("phase2-backend-health-check");
+  if (typeof token !== "string" || token.split(".").length !== 3) {
+    throw new Error("Firebase Admin custom-token signing failed.");
+  }
+
+  return Object.freeze({ app, auth, db });
 }
 
 export async function getFirebaseAdmin() {
   if (!cachedServicesPromise) {
     cachedServicesPromise = initializeFirebaseAdmin().catch((error) => {
-      // Do not cache failed initialization; a warm function may retry after
-      // environment configuration is corrected and a new deployment is made.
       cachedServicesPromise = null;
       throw error;
     });
   }
-
   return cachedServicesPromise;
 }

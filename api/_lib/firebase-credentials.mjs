@@ -1,3 +1,7 @@
+import { createPrivateKey } from "node:crypto";
+
+const EXPECTED_PROJECT_ID = "hau-msc-agri-entrance";
+
 export class ServerCredentialError extends Error {
   constructor(code, message) {
     super(message);
@@ -39,6 +43,40 @@ function requiredText(value, fieldName) {
   return text;
 }
 
+function decodeBase64Json(value) {
+  const encoded = requiredText(value, "service_account_base64")
+    .replace(/^data:application\/json;base64,/i, "")
+    .replace(/\s+/g, "")
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 === 1) {
+    throw new ServerCredentialError(
+      "invalid_service_account_base64",
+      "FIREBASE_SERVICE_ACCOUNT_BASE64 is not valid Base64."
+    );
+  }
+
+  let decoded;
+  try {
+    decoded = Buffer.from(encoded, "base64").toString("utf8");
+  } catch {
+    throw new ServerCredentialError(
+      "invalid_service_account_base64",
+      "FIREBASE_SERVICE_ACCOUNT_BASE64 could not be decoded."
+    );
+  }
+
+  try {
+    return JSON.parse(decoded);
+  } catch {
+    throw new ServerCredentialError(
+      "invalid_service_account_base64_json",
+      "Decoded Firebase service-account value is not valid JSON."
+    );
+  }
+}
+
 function normalizePrivateKey(value) {
   let privateKey = requiredText(value, "private_key")
     .replace(/\\r\\n/g, "\n")
@@ -55,12 +93,13 @@ function normalizePrivateKey(value) {
   if (begin < 0 || end < begin) {
     throw new ServerCredentialError(
       "invalid_private_key",
-      "Firebase private key is not a valid PEM value."
+      "Firebase private key is not a PKCS#8 PEM value."
     );
   }
 
+  privateKey = privateKey.slice(begin, end + endMarker.length);
   const body = privateKey
-    .slice(begin + beginMarker.length, end)
+    .slice(beginMarker.length, -endMarker.length)
     .replace(/\s+/g, "");
 
   if (!body || !/^[A-Za-z0-9+/=]+$/.test(body)) {
@@ -70,9 +109,25 @@ function normalizePrivateKey(value) {
     );
   }
 
-  // Rebuild a canonical PEM block so either literal \n or real line breaks work.
-  const lines = body.match(/.{1,64}/g) || [];
-  return `${beginMarker}\n${lines.join("\n")}\n${endMarker}\n`;
+  const canonicalPem = `${beginMarker}\n${(body.match(/.{1,64}/g) || []).join("\n")}\n${endMarker}\n`;
+
+  try {
+    const keyObject = createPrivateKey({
+      key: canonicalPem,
+      format: "pem",
+      type: "pkcs8"
+    });
+    if (keyObject.asymmetricKeyType !== "rsa") {
+      throw new Error("Expected an RSA private key.");
+    }
+  } catch {
+    throw new ServerCredentialError(
+      "invalid_private_key",
+      "Firebase private key could not be parsed cryptographically."
+    );
+  }
+
+  return canonicalPem;
 }
 
 function normalizeServiceAccount(value) {
@@ -80,10 +135,10 @@ function normalizeServiceAccount(value) {
   const clientEmail = requiredText(value?.client_email ?? value?.clientEmail, "client_email");
   const privateKey = normalizePrivateKey(value?.private_key ?? value?.privateKey);
 
-  if (!/^[a-z][a-z0-9-]{4,29}$/.test(projectId)) {
+  if (projectId !== EXPECTED_PROJECT_ID) {
     throw new ServerCredentialError(
-      "invalid_project_id",
-      "Firebase project ID is invalid."
+      "wrong_project_id",
+      `Firebase service account must belong to ${EXPECTED_PROJECT_ID}.`
     );
   }
 
@@ -94,41 +149,61 @@ function normalizeServiceAccount(value) {
     );
   }
 
-  return { projectId, clientEmail, privateKey };
+  return Object.freeze({ projectId, clientEmail, privateKey });
 }
 
-function hasCompleteSplitCredential(environment) {
-  return Boolean(
-    cleanEnvText(environment.FIREBASE_PROJECT_ID)
-    && cleanEnvText(environment.FIREBASE_CLIENT_EMAIL)
-    && cleanEnvText(environment.FIREBASE_PRIVATE_KEY)
-  );
+function parseJsonCredential(value) {
+  const text = requiredText(value, "service_account_json");
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new ServerCredentialError(
+      "invalid_service_account_json",
+      "FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON."
+    );
+  }
+}
+
+function completeSplitCredential(environment) {
+  const projectId = cleanEnvText(environment.FIREBASE_PROJECT_ID);
+  const clientEmail = cleanEnvText(environment.FIREBASE_CLIENT_EMAIL);
+  const privateKey = cleanEnvText(environment.FIREBASE_PRIVATE_KEY);
+  if (!projectId || !clientEmail || !privateKey) return null;
+  return { project_id: projectId, client_email: clientEmail, private_key: privateKey };
 }
 
 export function parseServiceAccountEnv(environment = process.env) {
-  const jsonCredential = cleanEnvText(environment.FIREBASE_SERVICE_ACCOUNT_JSON);
-  const splitCredentialAvailable = hasCompleteSplitCredential(environment);
+  const candidates = [];
 
-  if (jsonCredential) {
+  if (cleanEnvText(environment.FIREBASE_SERVICE_ACCOUNT_BASE64)) {
+    candidates.push(() => decodeBase64Json(environment.FIREBASE_SERVICE_ACCOUNT_BASE64));
+  }
+  if (cleanEnvText(environment.FIREBASE_SERVICE_ACCOUNT_JSON)) {
+    candidates.push(() => parseJsonCredential(environment.FIREBASE_SERVICE_ACCOUNT_JSON));
+  }
+  const split = completeSplitCredential(environment);
+  if (split) candidates.push(() => split);
+
+  if (!candidates.length) {
+    throw new ServerCredentialError(
+      "missing_service_account",
+      "No complete Firebase service-account credential is configured."
+    );
+  }
+
+  let firstError = null;
+  for (const getCandidate of candidates) {
     try {
-      return normalizeServiceAccount(JSON.parse(jsonCredential));
+      return normalizeServiceAccount(getCandidate());
     } catch (error) {
-      // A stale JSON variable must not block correctly configured split variables.
-      if (!splitCredentialAvailable) {
-        if (error instanceof ServerCredentialError) throw error;
-        throw new ServerCredentialError(
-          "invalid_service_account_json",
-          "FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON."
-        );
-      }
+      if (!firstError) firstError = error;
     }
   }
 
-  return normalizeServiceAccount({
-    projectId: environment.FIREBASE_PROJECT_ID,
-    clientEmail: environment.FIREBASE_CLIENT_EMAIL,
-    privateKey: environment.FIREBASE_PRIVATE_KEY
-  });
+  throw firstError || new ServerCredentialError(
+    "invalid_service_account",
+    "Firebase service-account credential is invalid."
+  );
 }
 
 export function credentialFailureReason(error) {
@@ -136,40 +211,38 @@ export function credentialFailureReason(error) {
 
   const code = String(error?.code || "").toLowerCase();
   const message = String(error?.message || "").toLowerCase();
+  const combined = `${code} ${message}`;
 
   if (
-    code.includes("module_not_found")
-    || code.includes("err_module_not_found")
-    || message.includes("cannot find package")
-    || message.includes("cannot find module")
-  ) {
-    return "firebase_admin_module_load_failed";
-  }
+    combined.includes("module_not_found")
+    || combined.includes("cannot find package")
+    || combined.includes("cannot find module")
+    || combined.includes("package subpath")
+  ) return "firebase_admin_module_load_failed";
 
   if (
-    code.includes("invalid-credential")
-    || message.includes("private key")
-    || message.includes("pem")
-    || message.includes("asn.1")
-    || message.includes("decoder routines")
-  ) {
-    return "invalid_private_key";
-  }
+    combined.includes("private key")
+    || combined.includes("pem")
+    || combined.includes("asn1")
+    || combined.includes("asn.1")
+    || combined.includes("decoder")
+    || combined.includes("unsupported")
+    || combined.includes("invalid-credential")
+  ) return "invalid_private_key";
 
-  if (message.includes("permission") || message.includes("403")) {
+  if (combined.includes("permission") || combined.includes("403")) {
     return "firebase_permission_denied";
   }
 
   if (
-    message.includes("network")
-    || message.includes("fetch")
-    || message.includes("timeout")
-    || message.includes("econn")
-  ) {
-    return "firebase_network_error";
-  }
+    combined.includes("network")
+    || combined.includes("fetch")
+    || combined.includes("timeout")
+    || combined.includes("econn")
+    || combined.includes("enotfound")
+  ) return "firebase_network_error";
 
-  if (message.includes("credential") || message.includes("service account")) {
+  if (combined.includes("credential") || combined.includes("service account")) {
     return "invalid_service_account";
   }
 
