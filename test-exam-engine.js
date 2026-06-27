@@ -24,6 +24,14 @@ async function run() {
     "Firestore updates must treat legacy attempts without a locked field as unlocked"
   );
   assert(
+    firestoreRules.includes("validAttemptControlUpdate()"),
+    "Firestore updates must reject stale cross-tab status changes"
+  );
+  assert(
+    app.includes("state.db.onSnapshot"),
+    "the test attempt must listen for real-time Firestore changes"
+  );
+  assert(
     !app.includes('state.testMessage = "Test opened, but saving is having trouble. Please keep the page open."'),
     "test start failures must not create a duplicate save warning"
   );
@@ -333,6 +341,78 @@ async function run() {
       const recoveredAttempt = await reconcileClosedTestPause(state.currentAttempt, state.papers[0].id);
       assert(recoveredAttempt.status === "active", "corrupt close marker should not destroy the active attempt");
       assert(localStorage.getItem(corruptMarkerKey) === null, "corrupt close marker should be removed");
+
+      // Pausing, resuming, and submitting in one tab must update every other open tab.
+      state.firebaseReady = false;
+      state.papers = window.HAU_PAPERS.slice(0, 1);
+      state.selectedTestPaperId = state.papers[0].id;
+      testClientId = "local-tab";
+      const sharedActiveAttempt = {
+        ...blankAttempt(state.papers[0]),
+        status: "active",
+        controlVersion: 0,
+        expiresAtMs: Date.now() + 600000,
+        remainingMs: 600000,
+        updatedAtMs: 100,
+        lastWriterClientId: "local-tab"
+      };
+      state.currentAttempt = sharedActiveAttempt;
+      state.route = "test-taking";
+      const remotePausedAttempt = {
+        ...sharedActiveAttempt,
+        status: "paused",
+        controlVersion: 1,
+        remainingMs: 420000,
+        activeStartedAtMs: null,
+        expiresAtMs: null,
+        updatedAtMs: 200,
+        lastWriterClientId: "other-tab"
+      };
+      assert(applyRemoteTestAttempt(remotePausedAttempt), "newer remote pause should be applied immediately");
+      assert(state.currentAttempt.status === "paused", "remote pause should stop the test in this tab");
+      assert(state.currentAttempt.remainingMs === 420000, "all tabs should use the same paused time");
+      assert(state.route === "test-taking", "remote pause should keep the paused test screen open");
+      assert(state.testMessage.includes("paused in another tab"), "remote pause should explain why the timer stopped");
+
+      const staleActiveAttempt = {
+        ...sharedActiveAttempt,
+        status: "active",
+        controlVersion: 0,
+        updatedAtMs: 999999,
+        lastWriterClientId: "stale-tab"
+      };
+      assert(!shouldApplyRemoteAttempt(staleActiveAttempt, state.currentAttempt), "older control state must not override a newer pause");
+      assert(!applyRemoteTestAttempt(staleActiveAttempt), "stale active tab must not reactivate a paused test");
+      assert(state.currentAttempt.status === "paused", "stale active state must leave the shared test paused");
+
+      const remoteResumedAttempt = {
+        ...remotePausedAttempt,
+        status: "active",
+        controlVersion: 2,
+        remainingMs: 300000,
+        activeStartedAtMs: Date.now(),
+        expiresAtMs: Date.now() + 300000,
+        updatedAtMs: 300,
+        lastWriterClientId: "other-tab"
+      };
+      assert(applyRemoteTestAttempt(remoteResumedAttempt), "newer remote resume should be applied immediately");
+      assert(state.currentAttempt.status === "active", "remote resume should restart the shared test");
+      assert(remainingAttemptMs(state.currentAttempt) <= 300000 && remainingAttemptMs(state.currentAttempt) > 295000, "all tabs should use the same resumed expiry time");
+
+      const sharedResult = calculateResult(remoteResumedAttempt, state.papers[0]);
+      const remoteSubmittedAttempt = {
+        ...remoteResumedAttempt,
+        status: "submitted",
+        controlVersion: 3,
+        locked: true,
+        result: sharedResult,
+        submittedAtMs: Date.now(),
+        updatedAtMs: 400,
+        lastWriterClientId: "other-tab"
+      };
+      assert(applyRemoteTestAttempt(remoteSubmittedAttempt), "newer remote submission should be applied immediately");
+      assert(state.currentAttempt.status === "submitted", "submission in one tab should submit every open tab");
+      assert(state.route === "test-result", "remote submission should open the final result");
 
       return "ok";
     })()
