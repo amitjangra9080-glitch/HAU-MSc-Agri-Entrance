@@ -7,17 +7,13 @@ const JSON_HEADERS = Object.freeze({
 });
 
 function jsonResponse(payload, status = 200) {
-  return Response.json(payload, {
-    status,
-    headers: JSON_HEADERS
-  });
+  return Response.json(payload, { status, headers: JSON_HEADERS });
 }
 
 export async function GET(request) {
   try {
     const { getFirebaseAdmin } = await import("../_lib/firebase-admin.mjs");
     const services = await getFirebaseAdmin();
-
     if (!services?.app || !services?.auth || !services?.db) {
       throw new Error("Firebase Admin services did not initialize.");
     }
@@ -27,25 +23,17 @@ export async function GET(request) {
       service: "secure-auth-backend"
     });
   } catch (error) {
-    // This diagnostic helper has no Firebase Admin imports, so the error path
-    // itself cannot repeat the module-loading failure and crash the function.
     const reason = credentialFailureReason(error);
-
     console.error("Secure auth backend health check failed", {
       requestId: String(request?.headers?.get?.("x-vercel-id") || "").slice(0, 160),
       reason,
-      message: error instanceof Error ? error.message : "Unknown error"
+      errorName: String(error?.name || "Error").slice(0, 80),
+      errorCode: String(error?.code || "").slice(0, 120),
+      message: String(error?.message || "Unknown error").slice(0, 240)
     });
 
-    const payload = {
-      ok: false,
-      error: "service_unavailable"
-    };
-
-    if (process.env.VERCEL_ENV !== "production") {
-      payload.reason = reason;
-    }
-
+    const payload = { ok: false, error: "service_unavailable" };
+    if (process.env.VERCEL_ENV !== "production") payload.reason = reason;
     return jsonResponse(payload, 503);
   }
 }
