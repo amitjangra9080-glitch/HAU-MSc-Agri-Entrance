@@ -32,6 +32,42 @@ async function run() {
     "the test attempt must listen for real-time Firestore changes"
   );
   assert(
+    app.includes("state.db.runTransaction"),
+    "single-session acquisition must use a Firestore transaction"
+  );
+  assert(
+    app.includes("renderTestSessionBlocked"),
+    "a second tab or device must render a blocked test screen"
+  );
+  assert(
+    app.includes("Test already active elsewhere"),
+    "the blocked screen must clearly explain the active session"
+  );
+  assert(
+    !app.includes("Move Test Here"),
+    "the blocked screen must not offer a session takeover action"
+  );
+  assert(
+    firestoreRules.includes("validAttemptSessionUpdate()"),
+    "Firestore rules must enforce the active test-session owner"
+  );
+  assert(
+    firestoreRules.includes("validAttemptSessionMigration()"),
+    "Firestore rules must migrate existing attempts without breaking the current production client"
+  );
+  assert(
+    app.includes("sessionEnforced: true"),
+    "new test sessions must opt into strict single-session enforcement"
+  );
+  assert(
+    firestoreRules.includes("activeSessionHeartbeatAt"),
+    "Firestore rules must use a server-timestamp heartbeat for session expiry"
+  );
+  assert(
+    firestoreRules.includes("request.resource.data.get('activeSessionHeartbeatAt', timestamp.value(0)) == request.time"),
+    "session heartbeat writes must be validated against server request time"
+  );
+  assert(
     !app.includes('state.testMessage = "Test opened, but saving is having trouble. Please keep the page open."'),
     "test start failures must not create a duplicate save warning"
   );
@@ -77,7 +113,8 @@ async function run() {
       hasFirebaseConfig: false,
       addEventListener: () => {},
       confirm: () => true,
-      crypto: { randomUUID: () => "test-uid" }
+      crypto: { randomUUID: () => "test-uid" },
+      sessionStorage: createStorage()
     },
     requestAnimationFrame: (fn) => fn(),
     htmlescape: undefined
@@ -413,6 +450,132 @@ async function run() {
       assert(applyRemoteTestAttempt(remoteSubmittedAttempt), "newer remote submission should be applied immediately");
       assert(state.currentAttempt.status === "submitted", "submission in one tab should submit every open tab");
       assert(state.route === "test-result", "remote submission should open the final result");
+
+      // Only the original test window may control an active attempt.
+      state.firebaseReady = false;
+      localStorage.clear();
+      state.papers = window.HAU_PAPERS.slice(0, 1);
+      state.selectedTestPaperId = state.papers[0].id;
+      testClientId = "original-window";
+      const originalSessionAttempt = {
+        ...blankAttempt(state.papers[0]),
+        activeClientId: "original-window",
+        activeSessionExpiresAtMs: Date.now() + TEST_SESSION_LEASE_MS,
+        lastWriterClientId: "original-window",
+        updatedAtMs: 1000
+      };
+      writeLocalTestAttempt(originalSessionAttempt);
+
+      testClientId = "second-window";
+      state.currentAttempt = null;
+      state.testSessionBlocked = false;
+      state.route = "tests";
+      await openTestPaper(state.selectedTestPaperId);
+      assert(state.route === "test-session-blocked", "a second window must not open the active test");
+      assert(state.testSessionBlocked === true, "a second window must be marked as blocked");
+      assert(app.innerHTML.includes("Test already active elsewhere"), "blocked screen must identify the active session");
+      assert(app.innerHTML.includes('id="checkTestSession"'), "blocked screen must include Check Again");
+      assert(app.innerHTML.includes('id="returnFromBlockedTest"'), "blocked screen must include Return to Tests");
+      assert(!app.innerHTML.includes("Move Test Here"), "blocked screen must not include takeover controls");
+      const answerBeforeBlockedTap = state.currentAttempt.answers["1"] || "";
+      selectTestAnswer("D");
+      assert((state.currentAttempt.answers["1"] || "") === answerBeforeBlockedTap, "blocked window must not change answers");
+      assert(state.route === "test-session-blocked", "blocked answer attempt must remain on blocked screen");
+
+      // Check Again must keep blocking while the original heartbeat lease is fresh.
+      await checkTestSessionAvailability();
+      assert(state.route === "test-session-blocked", "fresh original session must remain blocked after Check Again");
+      assert(state.testMessage.includes("still active"), "Check Again must explain that the original session is still active");
+
+      // Once the original window's lease expires, this window may resume normally.
+      const expiredSessionAttempt = {
+        ...state.currentAttempt,
+        activeSessionExpiresAtMs: Date.now() - 1,
+        updatedAtMs: Date.now() + 1
+      };
+      writeLocalTestAttempt(expiredSessionAttempt);
+      await checkTestSessionAvailability();
+      assert(state.route === "test-intro", "expired original session must return to the test intro");
+      assert(state.testSessionBlocked === false, "expired session must clear the blocked state");
+      await startOrResumeTest();
+      assert(state.route === "test-taking", "available test must resume in the new window");
+      assert(state.currentAttempt.activeClientId === "second-window", "new window must become the session owner after expiry");
+      assert(attemptSessionBelongsToCurrentTab(state.currentAttempt), "new session owner must control the attempt");
+
+      // Explicitly quitting a paused test window releases ownership without a takeover button.
+      await pauseActiveTest("manual");
+      assert(state.currentAttempt.status === "paused", "owner must be able to pause before releasing the window");
+      await releaseCurrentTestSession();
+      assert(state.currentAttempt.activeClientId === "", "Quit Test Window must release the active client id");
+      assert(state.currentAttempt.activeSessionExpiresAtMs === 0, "released test window must clear its lease");
+      testClientId = "third-window";
+      state.testSessionBlocked = false;
+      await startOrResumeTest();
+      assert(state.currentAttempt.activeClientId === "third-window", "another window may resume only after explicit release");
+
+      // If a different window becomes owner, the stale original window must lock immediately.
+      testClientId = "stale-original";
+      const staleOriginalAttempt = {
+        ...state.currentAttempt,
+        activeClientId: "stale-original",
+        activeSessionExpiresAtMs: Date.now() + TEST_SESSION_LEASE_MS,
+        lastWriterClientId: "stale-original",
+        updatedAtMs: 2000
+      };
+      state.currentAttempt = staleOriginalAttempt;
+      state.testSessionBlocked = false;
+      state.route = "test-taking";
+      const newOwnerRemoteAttempt = {
+        ...staleOriginalAttempt,
+        activeClientId: "different-window",
+        activeSessionExpiresAtMs: Date.now() + TEST_SESSION_LEASE_MS,
+        lastWriterClientId: "different-window",
+        updatedAtMs: 3000
+      };
+      assert(applyRemoteTestAttempt(newOwnerRemoteAttempt), "newer remote ownership must be applied");
+      assert(state.route === "test-session-blocked", "stale original window must lock when ownership changes");
+      assert(state.testSessionBlocked === true, "stale original window must enter blocked state");
+
+      // Server heartbeat timestamps must define the local lease window.
+      const heartbeatNow = Date.now();
+      const heartbeatAttempt = normalizeTestAttempt({
+        ...newOwnerRemoteAttempt,
+        activeSessionExpiresAtMs: 0,
+        activeSessionHeartbeatAt: {
+          seconds: Math.floor(heartbeatNow / 1000),
+          nanoseconds: 0
+        }
+      });
+      assert(
+        heartbeatAttempt.activeSessionExpiresAtMs >= heartbeatNow + TEST_SESSION_LEASE_MS - 1000,
+        "remote server heartbeat must reconstruct a fresh local lease"
+      );
+
+      // Transactional acquisition must not write when another owner has a fresh lease.
+      testClientId = "transaction-second-window";
+      let transactionWriteCount = 0;
+      const transactionRemoteAttempt = {
+        ...blankAttempt(state.papers[0]),
+        activeClientId: "transaction-owner",
+        activeSessionExpiresAtMs: Date.now() + TEST_SESSION_LEASE_MS,
+        lastWriterClientId: "transaction-owner",
+        updatedAtMs: Date.now()
+      };
+      state.currentAttempt = transactionRemoteAttempt;
+      state.firebaseReady = true;
+      state.firestore = {};
+      state.db = {
+        doc: (_firestore, collection, id) => ({ collection, id }),
+        serverTimestamp: () => ({ __serverTimestamp: true }),
+        runTransaction: async (_firestore, callback) => callback({
+          get: async () => ({ exists: () => true, data: () => transactionRemoteAttempt }),
+          set: () => { transactionWriteCount += 1; }
+        })
+      };
+      const blockedTransactionResult = await acquireTestSession(state.papers[0]);
+      assert(blockedTransactionResult.blocked === true, "transaction must reject a fresh session owned elsewhere");
+      assert(transactionWriteCount === 0, "blocked transaction must not write a takeover");
+      state.firebaseReady = false;
 
       return "ok";
     })()

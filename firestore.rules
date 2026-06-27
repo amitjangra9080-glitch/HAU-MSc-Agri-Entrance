@@ -17,6 +17,64 @@ service cloud.firestore {
         || (!sameStatus && requestedVersion == currentVersion + 1);
     }
 
+    function currentAttemptSessionAvailable() {
+      let currentOwner = resource.data.get('activeClientId', '');
+      let currentHeartbeat = resource.data.get('activeSessionHeartbeatAt', timestamp.value(0));
+      return currentOwner == ''
+        || currentHeartbeat + duration.value(2, 'm') <= request.time;
+    }
+
+    function validRequestedAttemptSession() {
+      let requestedOwner = request.resource.data.get('activeClientId', '');
+      let requestedWriter = request.resource.data.get('lastWriterClientId', '');
+      return requestedOwner == ''
+        || (
+          requestedOwner == requestedWriter
+          && request.resource.data.get('activeSessionHeartbeatAt', timestamp.value(0)) == request.time
+        );
+    }
+
+    function validAttemptSessionCreate() {
+      let requestedOwner = request.resource.data.get('activeClientId', '');
+      let requestedWriter = request.resource.data.get('lastWriterClientId', '');
+      return request.resource.data.get('sessionEnforced', false) == true
+        && requestedOwner != ''
+        && requestedOwner == requestedWriter
+        && validRequestedAttemptSession();
+    }
+
+    function validAttemptSessionUpdate() {
+      let currentOwner = resource.data.get('activeClientId', '');
+      let requestedOwner = request.resource.data.get('activeClientId', '');
+      let requestedWriter = request.resource.data.get('lastWriterClientId', '');
+      let ownerContinuesOrReleases = currentOwner != ''
+        && requestedWriter == currentOwner
+        && (requestedOwner == currentOwner || requestedOwner == '');
+      let availableSessionClaim = currentAttemptSessionAvailable()
+        && requestedOwner != ''
+        && requestedOwner == requestedWriter;
+      return request.resource.data.get('sessionEnforced', false) == true
+        && validRequestedAttemptSession()
+        && (ownerContinuesOrReleases || availableSessionClaim);
+    }
+
+    function validAttemptSessionMigration() {
+      let currentEnforced = resource.data.get('sessionEnforced', false) == true;
+      let requestedEnforced = request.resource.data.get('sessionEnforced', false) == true;
+      return (
+          !currentEnforced
+          && (
+            !requestedEnforced
+            || validAttemptSessionUpdate()
+          )
+        )
+        || (
+          currentEnforced
+          && requestedEnforced
+          && validAttemptSessionUpdate()
+        );
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId)
@@ -50,13 +108,18 @@ service cloud.firestore {
       allow create: if signedIn()
         && attemptId.matches(request.auth.uid + "_.*")
         && request.resource.data.uid == request.auth.uid
+        && (
+          request.resource.data.get('sessionEnforced', false) != true
+          || validAttemptSessionCreate()
+        )
         && !exists(/databases/$(database)/documents/testAttempts/$(attemptId));
       allow update: if signedIn()
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.paperId == resource.data.paperId
         && resource.data.get('locked', false) != true
-        && validAttemptControlUpdate();
+        && validAttemptControlUpdate()
+        && validAttemptSessionMigration();
       allow delete: if false;
     }
 
