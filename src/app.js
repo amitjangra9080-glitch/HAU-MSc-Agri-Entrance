@@ -58,6 +58,8 @@ let pendingAttemptSnapshot = null;
 let attemptPersistPromise = Promise.resolve();
 let attemptPersistRetryTimer = null;
 let attemptPersistRetryCount = 0;
+let testAttemptUnsubscribe = null;
+let testClientId = "";
 const ATTEMPT_PERSIST_MAX_RETRIES = 3;
 const ATTEMPT_PERSIST_RETRY_DELAY_MS = 1200;
 const testTicker = setInterval(syncTestTimer, 1000);
@@ -69,6 +71,21 @@ function saveDemoUsers() {
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
   return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function currentTestClientId() {
+  if (testClientId) return testClientId;
+  try {
+    const key = "hau_test_client_id";
+    testClientId = window.sessionStorage?.getItem(key) || "";
+    if (!testClientId) {
+      testClientId = makeId();
+      window.sessionStorage?.setItem(key, testClientId);
+    }
+  } catch {
+    testClientId = makeId();
+  }
+  return testClientId;
 }
 
 function normalizeAdmissionNumber(value) {
@@ -189,29 +206,147 @@ function testCloseMarkerKey(paperId) {
   return `hau_pending_test_pause_${testAttemptId(paperId)}`;
 }
 
+function attemptControlVersion(attempt) {
+  return Math.max(0, Number(attempt?.controlVersion) || 0);
+}
+
+function nextAttemptControlVersion(attempt) {
+  return attemptControlVersion(attempt) + 1;
+}
+
+function normalizeTestAttempt(attempt) {
+  if (!attempt) return null;
+  return {
+    ...attempt,
+    locked: attempt.locked === true,
+    controlVersion: attemptControlVersion(attempt)
+  };
+}
+
 function readLocalTestAttempt(paperId) {
   try {
-    return JSON.parse(localStorage.getItem(demoAttemptKey(paperId)) || "null");
+    return normalizeTestAttempt(JSON.parse(localStorage.getItem(demoAttemptKey(paperId)) || "null"));
   } catch {
     return null;
   }
 }
 
 function writeLocalTestAttempt(attempt) {
-  if (!attempt?.paperId) return;
-  localStorage.setItem(demoAttemptKey(attempt.paperId), JSON.stringify(attempt));
+  const normalized = normalizeTestAttempt(attempt);
+  if (!normalized?.paperId) return;
+  localStorage.setItem(demoAttemptKey(normalized.paperId), JSON.stringify(normalized));
+}
+
+function isTestRoute(route = state.route) {
+  return ["test-intro", "test-taking", "test-submit", "test-result"].includes(route);
+}
+
+function shouldApplyRemoteAttempt(remoteAttempt, localAttempt) {
+  const remote = normalizeTestAttempt(remoteAttempt);
+  const local = normalizeTestAttempt(localAttempt);
+  if (!remote) return false;
+  if (!local) return true;
+  if (remote.uid && local.uid && remote.uid !== local.uid) return false;
+  if (remote.paperId !== local.paperId) return false;
+  const remoteControlVersion = attemptControlVersion(remote);
+  const localControlVersion = attemptControlVersion(local);
+  if (remoteControlVersion !== localControlVersion) return remoteControlVersion > localControlVersion;
+  if (remote.status === "submitted" && local.status !== "submitted") return true;
+  return Number(remote.updatedAtMs || 0) > Number(local.updatedAtMs || 0);
+}
+
+function remoteAttemptStatusMessage(previousAttempt, remoteAttempt) {
+  if (!previousAttempt || previousAttempt.status === remoteAttempt.status) {
+    return "Latest test progress from another tab or device has been loaded.";
+  }
+  if (remoteAttempt.status === "paused") {
+    return "This test was paused in another tab or device. The timer has stopped everywhere.";
+  }
+  if (remoteAttempt.status === "active") {
+    return "This test was resumed in another tab or device. The shared timer is active again.";
+  }
+  if (remoteAttempt.status === "submitted") {
+    return "This test was submitted in another tab or device. The final result has been loaded.";
+  }
+  return "The latest test state from another tab or device has been loaded.";
+}
+
+function applyRemoteTestAttempt(remoteAttempt) {
+  const remote = normalizeTestAttempt(remoteAttempt);
+  const previous = state.currentAttempt;
+  if (!shouldApplyRemoteAttempt(remote, previous)) return false;
+
+  const controlChanged = !previous
+    || attemptControlVersion(remote) !== attemptControlVersion(previous)
+    || remote.status !== previous.status;
+  const writtenByThisTab = Boolean(remote.lastWriterClientId)
+    && remote.lastWriterClientId === currentTestClientId();
+
+  pendingAttemptSnapshot = null;
+  attemptPersistRetryCount = 0;
+  clearAttemptPersistRetry();
+  setTestSaveMessage("");
+  state.currentAttempt = remote;
+  writeLocalTestAttempt(remote);
+
+  if (controlChanged) {
+    state.testQuestionNumber = remote.currentQuestion || state.testQuestionNumber || 1;
+    state.testQuestionStartedAt = Date.now();
+    state.testPaletteOpen = false;
+  }
+  if (!writtenByThisTab && controlChanged) {
+    state.testMessage = remoteAttemptStatusMessage(previous, remote);
+  }
+
+  if (remote.paperId === state.selectedTestPaperId && isTestRoute()) {
+    if (remote.status === "submitted") state.route = "test-result";
+    else if (remote.status === "paused") state.route = "test-taking";
+    else if (remote.status === "active" && state.route !== "test-result") state.route = "test-taking";
+    render();
+  }
+  return true;
+}
+
+function stopTestAttemptListener() {
+  if (typeof testAttemptUnsubscribe === "function") testAttemptUnsubscribe();
+  testAttemptUnsubscribe = null;
+}
+
+function startTestAttemptListener(paperId) {
+  stopTestAttemptListener();
+  if (!state.firebaseReady || !state.user || typeof state.db?.onSnapshot !== "function") return;
+  testAttemptUnsubscribe = state.db.onSnapshot(
+    testAttemptRef(paperId),
+    (snapshot) => {
+      if (!snapshot.exists()) return;
+      applyRemoteTestAttempt(snapshot.data());
+    },
+    (error) => {
+      console.error("Live test sync failed", error);
+      if (isTestRoute()) {
+        setTestSaveMessage("Live sync with other tabs is temporarily unavailable. Keep only one test window open.");
+      }
+    }
+  );
 }
 
 function bestAvailableAttempt(remoteAttempt, localAttempt) {
-  if (!remoteAttempt) return localAttempt;
-  if (!localAttempt) return remoteAttempt;
-  if (remoteAttempt.uid && localAttempt.uid && remoteAttempt.uid !== localAttempt.uid) return remoteAttempt;
-  if (remoteAttempt.paperId !== localAttempt.paperId) return remoteAttempt;
-  if (remoteAttempt.locked || remoteAttempt.status === "submitted") return remoteAttempt;
-  if (localAttempt.locked || localAttempt.status === "submitted") return localAttempt;
-  return Number(localAttempt.updatedAtMs || 0) >= Number(remoteAttempt.updatedAtMs || 0)
-    ? localAttempt
-    : remoteAttempt;
+  const remote = normalizeTestAttempt(remoteAttempt);
+  const local = normalizeTestAttempt(localAttempt);
+  if (!remote) return local;
+  if (!local) return remote;
+  if (remote.uid && local.uid && remote.uid !== local.uid) return remote;
+  if (remote.paperId !== local.paperId) return remote;
+  const remoteControlVersion = attemptControlVersion(remote);
+  const localControlVersion = attemptControlVersion(local);
+  if (remoteControlVersion !== localControlVersion) {
+    return remoteControlVersion > localControlVersion ? remote : local;
+  }
+  if (remote.locked || remote.status === "submitted") return remote;
+  if (local.locked || local.status === "submitted") return local;
+  return Number(local.updatedAtMs || 0) >= Number(remote.updatedAtMs || 0)
+    ? local
+    : remote;
 }
 
 function blankAttempt(paper) {
@@ -239,6 +374,9 @@ function blankAttempt(paper) {
     visited: { 1: true },
     timeSpent: {},
     result: null,
+    locked: false,
+    controlVersion: 0,
+    lastWriterClientId: currentTestClientId(),
     createdAtMs: now,
     updatedAtMs: now
   };
@@ -264,13 +402,19 @@ async function loadTestAttempt(paperId) {
   if (state.firebaseReady) {
     try {
       const snap = await state.db.getDoc(testAttemptRef(paperId));
-      const remoteAttempt = snap.exists() ? snap.data() : null;
+      const remoteAttempt = normalizeTestAttempt(snap.exists() ? snap.data() : null);
       const attempt = bestAvailableAttempt(remoteAttempt, localAttempt);
       if (attempt) writeLocalTestAttempt(attempt);
-      const localIsChosen = Boolean(localAttempt && attempt === localAttempt);
+      const localIsChosen = Boolean(localAttempt && attempt
+        && attempt.status === localAttempt.status
+        && attemptControlVersion(attempt) === attemptControlVersion(localAttempt)
+        && Number(attempt.updatedAtMs || 0) === Number(localAttempt.updatedAtMs || 0));
       const localIsNewer = Number(localAttempt?.updatedAtMs || 0) > Number(remoteAttempt?.updatedAtMs || 0);
       if (localIsChosen && (!remoteAttempt || localIsNewer || localAttempt.locked || localAttempt.status === "submitted")) {
-        pendingAttemptSnapshot = JSON.parse(JSON.stringify(localAttempt));
+        pendingAttemptSnapshot = JSON.parse(JSON.stringify({
+          ...localAttempt,
+          locked: localAttempt.locked === true
+        }));
         attemptPersistRetryCount = 0;
         clearAttemptPersistRetry();
         persistPendingAttempt().catch((error) => {
@@ -314,7 +458,12 @@ function scheduleAttemptPersistRetry() {
 }
 
 async function saveTestAttempt(attempt) {
-  const nextAttempt = { ...attempt, updatedAtMs: Date.now() };
+  const nextAttempt = normalizeTestAttempt({
+    ...attempt,
+    locked: attempt.locked === true,
+    lastWriterClientId: currentTestClientId(),
+    updatedAtMs: Date.now()
+  });
   state.currentAttempt = nextAttempt;
   writeLocalTestAttempt(nextAttempt);
   pendingAttemptSnapshot = JSON.parse(JSON.stringify(nextAttempt));
@@ -491,6 +640,7 @@ async function submitAttempt(reason = "manual") {
     const submittedAttempt = {
       ...attemptForResult,
       status: "submitted",
+      controlVersion: nextAttemptControlVersion(attemptForResult),
       submittedAtMs: Date.now(),
       submitReason: reason,
       result,
@@ -500,9 +650,8 @@ async function submitAttempt(reason = "manual") {
     state.testSubmitting = false;
     state.route = "test-result";
     render();
-    saveTestAttempt(submittedAttempt).catch((error) => {
+      saveTestAttempt(submittedAttempt).catch((error) => {
       console.error("Could not save submitted test", error);
-      state.testMessage = "Result is shown, but saving is having trouble. Please keep the page open.";
     });
   } catch (error) {
     console.error("Could not submit test", error);
@@ -546,10 +695,12 @@ async function initFirebase() {
 
   authModule.onAuthStateChanged(state.firebaseAuth, async (firebaseUser) => {
     if (!firebaseUser) {
+      stopTestAttemptListener();
       state.user = null;
       return;
     }
     if (localStorage.getItem("hau_signed_out") === "true") {
+      stopTestAttemptListener();
       await authModule.signOut(state.firebaseAuth).catch(() => {});
       state.user = null;
       return;
@@ -1415,11 +1566,13 @@ async function handleForgot(event) {
 }
 
 async function openTestPaper(paperId) {
+  stopTestAttemptListener();
   state.selectedTestPaperId = paperId;
   state.testMessage = "";
   let attempt = await loadTestAttempt(paperId);
   attempt = await reconcileClosedTestPause(attempt, paperId);
-  state.currentAttempt = attempt;
+  state.currentAttempt = normalizeTestAttempt(attempt);
+  startTestAttemptListener(paperId);
   if (attempt?.status === "submitted") {
     state.route = "test-result";
   } else {
@@ -1451,9 +1604,11 @@ async function startOrResumeTest() {
     await submitAttempt("timeout");
     return;
   }
+  const resumingPausedAttempt = attempt.status === "paused";
   attempt = {
     ...attempt,
     status: "active",
+    controlVersion: resumingPausedAttempt ? nextAttemptControlVersion(attempt) : attemptControlVersion(attempt),
     remainingMs,
     activeStartedAtMs: now,
     expiresAtMs: now + remainingMs
@@ -1467,7 +1622,6 @@ async function startOrResumeTest() {
   render();
   saveTestAttempt(attempt).catch((error) => {
     console.error("Could not save test start", error);
-    state.testMessage = "Test opened, but saving is having trouble. Please keep the page open.";
   });
   await ensureAttemptFresh();
 }
@@ -1500,6 +1654,7 @@ async function pauseActiveTest(source = "manual") {
   const attempt = {
     ...state.currentAttempt,
     status: "paused",
+    controlVersion: nextAttemptControlVersion(state.currentAttempt),
     remainingMs,
     pauseCount: Number(state.currentAttempt.pauseCount || 0) + 1,
     lastPauseAtMs: Date.now(),
@@ -1514,7 +1669,6 @@ async function pauseActiveTest(source = "manual") {
   render();
   saveTestAttempt(attempt).catch((error) => {
     console.error("Could not save paused test", error);
-    state.testMessage = "Test paused, but saving is having trouble. Please keep the page open.";
   });
 }
 
@@ -1544,6 +1698,7 @@ async function reconcileClosedTestPause(attempt, paperId) {
   const pausedAttempt = {
     ...attempt,
     status: "paused",
+    controlVersion: nextAttemptControlVersion(attempt),
     remainingMs: Math.max(0, Number.isFinite(Number(marker.remainingMs)) ? Number(marker.remainingMs) : remainingAttemptMs(attempt)),
     pauseCount: pauseCount + 1,
     lastPauseAtMs: marker.atMs || Date.now(),
@@ -1657,7 +1812,6 @@ app.addEventListener("click", async (event) => {
     render();
     flushCurrentAttempt().catch((error) => {
       console.error("Could not save before leaving paused test window", error);
-      state.testMessage = "Test window closed, but saving is having trouble. Please keep the page open.";
     });
     return;
   }
@@ -1780,6 +1934,7 @@ app.addEventListener("click", async (event) => {
   }
 
   if (event.target.id === "logoutButton") {
+    stopTestAttemptListener();
     localStorage.setItem("hau_signed_out", "true");
     if (state.firebaseReady && state.firebaseAuth.currentUser) {
       await state.auth.signOut(state.firebaseAuth).catch((error) => {
