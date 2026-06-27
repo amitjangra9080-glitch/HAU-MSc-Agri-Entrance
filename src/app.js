@@ -597,21 +597,55 @@ async function writeAttemptSnapshot(snapshot) {
   }
 }
 
+function attemptSnapshotWasSuperseded(snapshot) {
+  const pending = normalizeTestAttempt(snapshot);
+  const current = normalizeTestAttempt(state.currentAttempt);
+  if (!pending || !current || pending.paperId !== current.paperId) return false;
+
+  const pendingControlVersion = attemptControlVersion(pending);
+  const currentControlVersion = attemptControlVersion(current);
+  if (currentControlVersion > pendingControlVersion) return true;
+  if (currentControlVersion < pendingControlVersion) return false;
+
+  if (current.status === "submitted" && pending.status !== "submitted") return true;
+
+  const currentWasWrittenElsewhere = Boolean(current.lastWriterClientId)
+    && current.lastWriterClientId !== currentTestClientId();
+  const currentIsAtLeastAsNew = Number(current.updatedAtMs || 0) >= Number(pending.updatedAtMs || 0);
+  const sessionOrStatusChanged = current.status !== pending.status
+    || current.activeClientId !== pending.activeClientId;
+
+  return currentWasWrittenElsewhere && currentIsAtLeastAsNew && sessionOrStatusChanged;
+}
+
 function persistPendingAttempt() {
   if (attemptPersistRunning) return attemptPersistPromise;
   if (!pendingAttemptSnapshot) return Promise.resolve();
   attemptPersistRunning = true;
   attemptPersistPromise = (async () => {
+    let failedSnapshot = null;
     try {
       while (pendingAttemptSnapshot) {
         const snapshot = pendingAttemptSnapshot;
+        failedSnapshot = snapshot;
         await writeAttemptSnapshot(snapshot);
+        failedSnapshot = null;
         if (pendingAttemptSnapshot === snapshot) pendingAttemptSnapshot = null;
         attemptPersistRetryCount = 0;
         clearAttemptPersistRetry();
         setTestSaveMessage("");
       }
     } catch (error) {
+      if (attemptSnapshotWasSuperseded(failedSnapshot)) {
+        if (!pendingAttemptSnapshot || attemptSnapshotWasSuperseded(pendingAttemptSnapshot)) {
+          pendingAttemptSnapshot = null;
+        }
+        attemptPersistRetryCount = 0;
+        clearAttemptPersistRetry();
+        setTestSaveMessage("");
+        console.info("Ignored a stale test save after a newer tab or device state was loaded.");
+        return;
+      }
       setTestSaveMessage("Saving is having trouble. Your latest progress is safe on this device and will retry automatically.");
       scheduleAttemptPersistRetry();
       throw error;
