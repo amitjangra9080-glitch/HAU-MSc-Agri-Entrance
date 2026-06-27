@@ -1,4 +1,4 @@
- const app = document.querySelector("#app");
+const app = document.querySelector("#app");
 const firebaseConfig = window.firebaseConfig || {};
 const hasFirebaseConfig = Boolean(window.hasFirebaseConfig);
 
