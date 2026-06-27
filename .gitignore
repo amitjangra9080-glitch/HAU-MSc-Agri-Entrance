@@ -5,4 +5,11 @@ firebase-debug.log
 *.local
 .DS_Store
 scripts/__pycache__/
-.vercel
+
+# Local environment files and server credentials must never be committed.
+.env
+.env.*
+!.env.example
+*service-account*.json
+firebase-adminsdk*.json
+google-application-credentials*.json

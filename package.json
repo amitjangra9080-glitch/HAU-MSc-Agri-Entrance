@@ -6,10 +6,18 @@
   "scripts": {
     "start": "npx serve .",
     "dev": "npx serve .",
+    "test": "node test-exam-engine.js && node --test test-auth-backend.mjs",
+    "test:auth-backend": "node --test test-auth-backend.mjs",
     "deploy:vercel": "vercel --prod",
     "deploy:firebase": "firebase deploy",
     "deploy:firebase:rules": "firebase deploy --only firestore:rules",
     "deploy:firebase:hosting": "firebase deploy --only hosting"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.1.0"
   },
   "devDependencies": {
     "serve": "^14.2.5"
