@@ -75,7 +75,7 @@ test("HTTP helpers return JSON and reject an unsupported method", () => {
 });
 
 test("health endpoint fails closed when server credentials are unavailable", async () => {
-  const { default: healthHandler } = await import("./api/auth/health.mjs");
+  const { GET } = await import("./api/auth/health.mjs");
   const saved = {
     json: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
     projectId: process.env.FIREBASE_PROJECT_ID,
@@ -88,27 +88,11 @@ test("health endpoint fails closed when server credentials are unavailable", asy
   delete process.env.FIREBASE_CLIENT_EMAIL;
   delete process.env.FIREBASE_PRIVATE_KEY;
 
-  let statusCode = 0;
-  let body = null;
-  const headers = new Map();
-  const response = {
-    setHeader(name, value) {
-      headers.set(name, value);
-    },
-    status(value) {
-      statusCode = value;
-      return this;
-    },
-    json(value) {
-      body = value;
-      return value;
-    }
-  };
-
   const originalConsoleError = console.error;
   console.error = () => {};
+  let response;
   try {
-    await healthHandler({ method: "GET", headers: {} }, response);
+    response = await GET(new Request("https://example.test/api/auth/health"));
   } finally {
     console.error = originalConsoleError;
     if (saved.json === undefined) delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -121,7 +105,7 @@ test("health endpoint fails closed when server credentials are unavailable", asy
     else process.env.FIREBASE_PRIVATE_KEY = saved.privateKey;
   }
 
-  assert.equal(statusCode, 503);
-  assert.equal(headers.get("Cache-Control"), "no-store, max-age=0");
-  assert.deepEqual(body, { ok: false, error: "service_unavailable" });
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("cache-control"), "no-store, max-age=0");
+  assert.deepEqual(await response.json(), { ok: false, error: "service_unavailable" });
 });
