@@ -3,9 +3,17 @@ import { createPrivateKey } from "node:crypto";
 const EXPECTED_PROJECT_ID = "hau-msc-agri-entrance";
 
 export class ServerCredentialError extends Error {
-  constructor(code, message) {
-    super(message);
+  constructor(code, message, options = undefined) {
+    super(message, options);
     this.name = "ServerCredentialError";
+    this.code = code;
+  }
+}
+
+export class ServerInitializationError extends Error {
+  constructor(code, message, cause) {
+    super(message, { cause });
+    this.name = "ServerInitializationError";
     this.code = code;
   }
 }
@@ -15,7 +23,6 @@ function cleanEnvText(value) {
   if (!text) return "";
 
   const candidate = text.endsWith(",") ? text.slice(0, -1).trim() : text;
-
   if (candidate.startsWith('"') && candidate.endsWith('"')) {
     try {
       const parsed = JSON.parse(candidate);
@@ -207,11 +214,15 @@ export function parseServiceAccountEnv(environment = process.env) {
 }
 
 export function credentialFailureReason(error) {
-  if (error instanceof ServerCredentialError) return error.code;
+  if (error instanceof ServerCredentialError || error instanceof ServerInitializationError) {
+    return error.code;
+  }
 
   const code = String(error?.code || "").toLowerCase();
   const message = String(error?.message || "").toLowerCase();
-  const combined = `${code} ${message}`;
+  const causeCode = String(error?.cause?.code || "").toLowerCase();
+  const causeMessage = String(error?.cause?.message || "").toLowerCase();
+  const combined = `${code} ${message} ${causeCode} ${causeMessage}`;
 
   if (
     combined.includes("module_not_found")

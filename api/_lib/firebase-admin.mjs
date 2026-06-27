@@ -1,32 +1,54 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { parseServiceAccountEnv } from "./firebase-credentials.mjs";
+import {
+  ServerInitializationError,
+  parseServiceAccountEnv
+} from "./firebase-credentials.mjs";
 
 const APP_NAME = "hau-secure-auth";
 let cachedServicesPromise = null;
 
+function runStage(code, message, operation) {
+  try {
+    return operation();
+  } catch (error) {
+    throw new ServerInitializationError(code, message, error);
+  }
+}
+
 async function initializeFirebaseAdmin() {
   const serviceAccount = parseServiceAccountEnv();
-  const existingApp = getApps().find((candidate) => candidate.name === APP_NAME);
-  const app = existingApp || initializeApp(
-    {
-      credential: cert(serviceAccount),
-      projectId: serviceAccount.projectId
-    },
-    APP_NAME
+
+  const app = runStage(
+    "firebase_app_initialization_failed",
+    "Firebase Admin app initialization failed.",
+    () => {
+      const existingApp = getApps().find((candidate) => candidate.name === APP_NAME);
+      return existingApp || initializeApp(
+        {
+          credential: cert(serviceAccount),
+          projectId: serviceAccount.projectId
+        },
+        APP_NAME
+      );
+    }
   );
 
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+  const auth = runStage(
+    "firebase_auth_initialization_failed",
+    "Firebase Admin Auth initialization failed.",
+    () => getAuth(app)
+  );
 
-  // Force local RSA signing now. This catches corrupted or mismatched PEM data
-  // during the health check instead of during a later registration request.
-  const token = await auth.createCustomToken("phase2-backend-health-check");
-  if (typeof token !== "string" || token.split(".").length !== 3) {
-    throw new Error("Firebase Admin custom-token signing failed.");
-  }
+  const db = runStage(
+    "firebase_firestore_initialization_failed",
+    "Firebase Admin Firestore initialization failed.",
+    () => getFirestore(app)
+  );
 
+  // Do not create a custom token in the health path. Token creation is a
+  // separate business operation and must not make basic backend readiness fail.
   return Object.freeze({ app, auth, db });
 }
 
