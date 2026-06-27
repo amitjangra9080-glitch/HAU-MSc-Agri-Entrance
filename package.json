@@ -14,12 +14,12 @@
     "deploy:firebase:hosting": "firebase deploy --only hosting"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "dependencies": {
-    "firebase-admin": "^14.1.0"
+    "firebase-admin": "14.1.0"
   },
   "devDependencies": {
-    "serve": "^14.2.5"
+    "serve": "14.2.5"
   }
 }
