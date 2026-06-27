@@ -47,7 +47,7 @@ const icons = {
   close: "×",
   home: "⌂",
   test: "□",
-  user: "♙"
+  user: `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 20c.8-4.1 3.3-6.2 7.5-6.2s6.7 2.1 7.5 6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`
 };
 
 const optionKeys = ["A", "B", "C", "D"];
