@@ -1,6 +1,7 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "installCommand": "npm ci --omit=dev --registry=https://registry.npmjs.org --no-audit --no-fund",
   "rewrites": [
     {
       "source": "/(.*)",
