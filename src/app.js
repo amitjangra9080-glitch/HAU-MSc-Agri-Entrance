@@ -377,25 +377,45 @@ function calculateResult(attempt, paper) {
 }
 
 async function submitAttempt(reason = "manual") {
-  if (!state.currentAttempt || state.currentAttempt.status === "submitted") return;
+  if (!state.currentAttempt) return;
+  if (state.currentAttempt.status === "submitted") {
+    state.route = "test-result";
+    render();
+    return;
+  }
   if (state.testSubmitting) return;
   state.testSubmitting = true;
   try {
     if (state.route === "test-submit") renderSubmitSummary();
-    await recordQuestionTime();
+    recordQuestionTime();
     cancelPendingAttemptAutosave();
     const paper = selectedTestPaper();
-    const result = calculateResult(state.currentAttempt, paper);
-    await saveTestAttempt({
+    const attemptForResult = {
       ...state.currentAttempt,
+      remainingMs: remainingAttemptMs(state.currentAttempt)
+    };
+    const result = calculateResult(attemptForResult, paper);
+    const submittedAttempt = {
+      ...attemptForResult,
       status: "submitted",
       submittedAtMs: Date.now(),
       submitReason: reason,
       result,
       locked: true
-    });
+    };
+    state.currentAttempt = submittedAttempt;
+    state.testSubmitting = false;
     state.route = "test-result";
     render();
+    saveTestAttempt(submittedAttempt).catch((error) => {
+      console.error("Could not save submitted test", error);
+      state.testMessage = "Result is shown, but saving is having trouble. Please keep the page open.";
+    });
+  } catch (error) {
+    console.error("Could not submit test", error);
+    state.testMessage = "Submit could not complete. Please try again.";
+    state.testSubmitting = false;
+    if (state.route === "test-submit") renderSubmitSummary();
   } finally {
     state.testSubmitting = false;
   }
@@ -1360,7 +1380,7 @@ async function pauseActiveTest(source = "manual") {
     return;
   }
   recordQuestionTime();
-  await flushCurrentAttempt();
+  cancelPendingAttemptAutosave();
   const remainingMs = remainingAttemptMs(state.currentAttempt);
   const attempt = {
     ...state.currentAttempt,

@@ -146,6 +146,22 @@ async function run() {
       state.currentAttempt = activeBeforeClose;
       await reconcileClosedTestPause(activeBeforeClose, state.selectedTestPaperId);
       assert(state.currentAttempt.status === "submitted", "closing after pause limit should auto-submit");
+      state.firebaseReady = true;
+      state.db = {
+        doc: (_firestore, collection, id) => ({ collection, id }),
+        getDoc: async () => ({ exists: () => false, data: () => null }),
+        setDoc: async () => { throw new Error("simulated write failure"); }
+      };
+      state.currentAttempt = blankAttempt(state.papers[0]);
+      state.route = "test-taking";
+      await pauseActiveTest("manual");
+      assert(state.currentAttempt.status === "paused", "pause should still update UI state if save fails");
+      assert(app.innerHTML.includes("Resume Test"), "failed pause save should still show paused controls");
+      state.currentAttempt = blankAttempt(state.papers[0]);
+      state.route = "test-submit";
+      await submitAttempt("manual");
+      assert(state.route === "test-result", "submit should still show result if save fails");
+      assert(state.currentAttempt.status === "submitted", "submit should still lock local result if save fails");
       return "ok";
     })()
   `;
