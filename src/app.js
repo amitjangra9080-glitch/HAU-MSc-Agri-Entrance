@@ -19,6 +19,7 @@ const state = {
   testSaveMessage: "",
   testTick: Date.now(),
   testSubmitting: false,
+  testSessionBlocked: false,
   auth: null,
   db: null,
   firebaseReady: false,
@@ -59,9 +60,12 @@ let attemptPersistPromise = Promise.resolve();
 let attemptPersistRetryTimer = null;
 let attemptPersistRetryCount = 0;
 let testAttemptUnsubscribe = null;
+let testSessionHeartbeatTimer = null;
 let testClientId = "";
 const ATTEMPT_PERSIST_MAX_RETRIES = 3;
 const ATTEMPT_PERSIST_RETRY_DELAY_MS = 1200;
+const TEST_SESSION_LEASE_MS = 2 * 60 * 1000;
+const TEST_SESSION_HEARTBEAT_MS = 30 * 1000;
 const testTicker = setInterval(syncTestTimer, 1000);
 
 function saveDemoUsers() {
@@ -216,10 +220,61 @@ function nextAttemptControlVersion(attempt) {
 
 function normalizeTestAttempt(attempt) {
   if (!attempt) return null;
+  const heartbeat = attempt.activeSessionHeartbeatAt;
+  const heartbeatMs = typeof heartbeat?.toMillis === "function"
+    ? heartbeat.toMillis()
+    : Number(heartbeat?.seconds) > 0
+      ? Number(heartbeat.seconds) * 1000 + Math.floor(Number(heartbeat.nanoseconds || 0) / 1000000)
+      : 0;
+  const { activeSessionHeartbeatAt: _remoteHeartbeat, ...rest } = attempt;
+  return {
+    ...rest,
+    locked: attempt.locked === true,
+    sessionEnforced: attempt.sessionEnforced === true,
+    controlVersion: attemptControlVersion(attempt),
+    activeClientId: String(attempt.activeClientId || ""),
+    activeSessionExpiresAtMs: heartbeatMs
+      ? heartbeatMs + TEST_SESSION_LEASE_MS
+      : Math.max(0, Number(attempt.activeSessionExpiresAtMs) || 0)
+  };
+}
+
+function attemptSessionOwner(attempt) {
+  return String(attempt?.activeClientId || "");
+}
+
+function attemptSessionExpiresAtMs(attempt) {
+  return Math.max(0, Number(attempt?.activeSessionExpiresAtMs) || 0);
+}
+
+function attemptSessionIsFresh(attempt, now = Date.now()) {
+  return Boolean(attemptSessionOwner(attempt)) && attemptSessionExpiresAtMs(attempt) > now;
+}
+
+function attemptSessionBelongsToCurrentTab(attempt) {
+  return Boolean(attemptSessionOwner(attempt))
+    && attemptSessionOwner(attempt) === currentTestClientId();
+}
+
+function attemptSessionHeldByAnotherTab(attempt, now = Date.now()) {
+  return attemptSessionIsFresh(attempt, now)
+    && attemptSessionOwner(attempt) !== currentTestClientId();
+}
+
+function testSessionLeasePatch(now = Date.now()) {
+  return {
+    activeClientId: currentTestClientId(),
+    activeSessionExpiresAtMs: now + TEST_SESSION_LEASE_MS,
+    lastWriterClientId: currentTestClientId()
+  };
+}
+
+function clearTestSessionFields(attempt) {
   return {
     ...attempt,
-    locked: attempt.locked === true,
-    controlVersion: attemptControlVersion(attempt)
+    activeClientId: "",
+    activeSessionExpiresAtMs: 0,
+    lastWriterClientId: currentTestClientId()
   };
 }
 
@@ -238,7 +293,7 @@ function writeLocalTestAttempt(attempt) {
 }
 
 function isTestRoute(route = state.route) {
-  return ["test-intro", "test-taking", "test-submit", "test-result"].includes(route);
+  return ["test-intro", "test-taking", "test-submit", "test-result", "test-session-blocked"].includes(route);
 }
 
 function shouldApplyRemoteAttempt(remoteAttempt, localAttempt) {
@@ -281,10 +336,13 @@ function applyRemoteTestAttempt(remoteAttempt) {
     || remote.status !== previous.status;
   const writtenByThisTab = Boolean(remote.lastWriterClientId)
     && remote.lastWriterClientId === currentTestClientId();
+  const blockedByAnotherSession = remote.status !== "submitted"
+    && attemptSessionHeldByAnotherTab(remote);
 
   pendingAttemptSnapshot = null;
   attemptPersistRetryCount = 0;
   clearAttemptPersistRetry();
+  cancelPendingAttemptAutosave();
   setTestSaveMessage("");
   state.currentAttempt = remote;
   writeLocalTestAttempt(remote);
@@ -294,14 +352,38 @@ function applyRemoteTestAttempt(remoteAttempt) {
     state.testQuestionStartedAt = Date.now();
     state.testPaletteOpen = false;
   }
+
+  if (blockedByAnotherSession) {
+    state.testSessionBlocked = true;
+    state.testMessage = "This test is active in another tab, browser, or device.";
+    stopTestSessionHeartbeat();
+    if (remote.paperId === state.selectedTestPaperId && isTestRoute()) {
+      state.route = "test-session-blocked";
+      render();
+    }
+    return true;
+  }
+
+  if (attemptSessionBelongsToCurrentTab(remote)) {
+    state.testSessionBlocked = false;
+    if (state.route === "test-taking" || state.route === "test-submit") {
+      startTestSessionHeartbeat();
+    }
+  }
   if (!writtenByThisTab && controlChanged) {
     state.testMessage = remoteAttemptStatusMessage(previous, remote);
   }
 
   if (remote.paperId === state.selectedTestPaperId && isTestRoute()) {
-    if (remote.status === "submitted") state.route = "test-result";
-    else if (remote.status === "paused") state.route = "test-taking";
-    else if (remote.status === "active" && state.route !== "test-result") state.route = "test-taking";
+    if (remote.status === "submitted") {
+      state.testSessionBlocked = false;
+      stopTestSessionHeartbeat();
+      state.route = "test-result";
+    } else if (!state.testSessionBlocked && remote.status === "paused") {
+      state.route = "test-taking";
+    } else if (!state.testSessionBlocked && remote.status === "active" && state.route !== "test-result") {
+      state.route = "test-taking";
+    }
     render();
   }
   return true;
@@ -337,6 +419,7 @@ function bestAvailableAttempt(remoteAttempt, localAttempt) {
   if (!local) return remote;
   if (remote.uid && local.uid && remote.uid !== local.uid) return remote;
   if (remote.paperId !== local.paperId) return remote;
+  if (attemptSessionIsFresh(remote) && !attemptSessionBelongsToCurrentTab(remote)) return remote;
   const remoteControlVersion = attemptControlVersion(remote);
   const localControlVersion = attemptControlVersion(local);
   if (remoteControlVersion !== localControlVersion) {
@@ -375,7 +458,10 @@ function blankAttempt(paper) {
     timeSpent: {},
     result: null,
     locked: false,
+    sessionEnforced: true,
     controlVersion: 0,
+    activeClientId: currentTestClientId(),
+    activeSessionExpiresAtMs: now + TEST_SESSION_LEASE_MS,
     lastWriterClientId: currentTestClientId(),
     createdAtMs: now,
     updatedAtMs: now
@@ -410,7 +496,13 @@ async function loadTestAttempt(paperId) {
         && attemptControlVersion(attempt) === attemptControlVersion(localAttempt)
         && Number(attempt.updatedAtMs || 0) === Number(localAttempt.updatedAtMs || 0));
       const localIsNewer = Number(localAttempt?.updatedAtMs || 0) > Number(remoteAttempt?.updatedAtMs || 0);
-      if (localIsChosen && (!remoteAttempt || localIsNewer || localAttempt.locked || localAttempt.status === "submitted")) {
+      const localCanRestoreDirectly = Boolean(localAttempt
+        && (localAttempt.locked
+          || localAttempt.status === "submitted"
+          || attemptSessionBelongsToCurrentTab(localAttempt)));
+      if (localIsChosen
+        && localCanRestoreDirectly
+        && (!remoteAttempt || localIsNewer || localAttempt.locked || localAttempt.status === "submitted")) {
         pendingAttemptSnapshot = JSON.parse(JSON.stringify({
           ...localAttempt,
           locked: localAttempt.locked === true
@@ -458,11 +550,27 @@ function scheduleAttemptPersistRetry() {
 }
 
 async function saveTestAttempt(attempt) {
+  const normalizedAttempt = normalizeTestAttempt(attempt);
+  if (normalizedAttempt?.status !== "submitted"
+    && attemptSessionHeldByAnotherTab(normalizedAttempt)) {
+    state.currentAttempt = normalizedAttempt;
+    state.testSessionBlocked = true;
+    state.route = "test-session-blocked";
+    stopTestSessionHeartbeat();
+    render();
+    throw new Error("Test session is active in another tab or device.");
+  }
+  if (normalizedAttempt?.activeClientId
+    && !attemptSessionBelongsToCurrentTab(normalizedAttempt)) {
+    throw new Error("This tab does not own the active test session.");
+  }
+  const now = Date.now();
   const nextAttempt = normalizeTestAttempt({
-    ...attempt,
-    locked: attempt.locked === true,
+    ...normalizedAttempt,
+    ...(normalizedAttempt?.activeClientId ? testSessionLeasePatch(now) : {}),
+    locked: normalizedAttempt?.locked === true,
     lastWriterClientId: currentTestClientId(),
-    updatedAtMs: Date.now()
+    updatedAtMs: now
   });
   state.currentAttempt = nextAttempt;
   writeLocalTestAttempt(nextAttempt);
@@ -473,12 +581,41 @@ async function saveTestAttempt(attempt) {
   return nextAttempt;
 }
 
+function attemptSnapshotForRemoteWrite(snapshot) {
+  if (!snapshot?.activeClientId || typeof state.db?.serverTimestamp !== "function") return snapshot;
+  return {
+    ...snapshot,
+    activeSessionHeartbeatAt: state.db.serverTimestamp()
+  };
+}
+
 async function writeAttemptSnapshot(snapshot) {
   if (state.firebaseReady) {
-    await state.db.setDoc(testAttemptRef(snapshot.paperId), snapshot);
+    await state.db.setDoc(testAttemptRef(snapshot.paperId), attemptSnapshotForRemoteWrite(snapshot));
   } else {
     localStorage.setItem(demoAttemptKey(snapshot.paperId), JSON.stringify(snapshot));
   }
+}
+
+function attemptSnapshotWasSuperseded(snapshot) {
+  const pending = normalizeTestAttempt(snapshot);
+  const current = normalizeTestAttempt(state.currentAttempt);
+  if (!pending || !current || pending.paperId !== current.paperId) return false;
+
+  const pendingControlVersion = attemptControlVersion(pending);
+  const currentControlVersion = attemptControlVersion(current);
+  if (currentControlVersion > pendingControlVersion) return true;
+  if (currentControlVersion < pendingControlVersion) return false;
+
+  if (current.status === "submitted" && pending.status !== "submitted") return true;
+
+  const currentWasWrittenElsewhere = Boolean(current.lastWriterClientId)
+    && current.lastWriterClientId !== currentTestClientId();
+  const currentIsAtLeastAsNew = Number(current.updatedAtMs || 0) >= Number(pending.updatedAtMs || 0);
+  const sessionOrStatusChanged = current.status !== pending.status
+    || current.activeClientId !== pending.activeClientId;
+
+  return currentWasWrittenElsewhere && currentIsAtLeastAsNew && sessionOrStatusChanged;
 }
 
 function persistPendingAttempt() {
@@ -486,16 +623,29 @@ function persistPendingAttempt() {
   if (!pendingAttemptSnapshot) return Promise.resolve();
   attemptPersistRunning = true;
   attemptPersistPromise = (async () => {
+    let failedSnapshot = null;
     try {
       while (pendingAttemptSnapshot) {
         const snapshot = pendingAttemptSnapshot;
+        failedSnapshot = snapshot;
         await writeAttemptSnapshot(snapshot);
+        failedSnapshot = null;
         if (pendingAttemptSnapshot === snapshot) pendingAttemptSnapshot = null;
         attemptPersistRetryCount = 0;
         clearAttemptPersistRetry();
         setTestSaveMessage("");
       }
     } catch (error) {
+      if (attemptSnapshotWasSuperseded(failedSnapshot)) {
+        if (!pendingAttemptSnapshot || attemptSnapshotWasSuperseded(pendingAttemptSnapshot)) {
+          pendingAttemptSnapshot = null;
+        }
+        attemptPersistRetryCount = 0;
+        clearAttemptPersistRetry();
+        setTestSaveMessage("");
+        console.info("Ignored a stale test save after a newer tab or device state was loaded.");
+        return;
+      }
       setTestSaveMessage("Saving is having trouble. Your latest progress is safe on this device and will retry automatically.");
       scheduleAttemptPersistRetry();
       throw error;
@@ -524,6 +674,10 @@ async function flushCurrentAttempt() {
 }
 
 function applyAttemptPatch(patch) {
+  if (!state.currentAttempt || !attemptSessionBelongsToCurrentTab(state.currentAttempt)) {
+    showBlockedTestSession();
+    return state.currentAttempt;
+  }
   const attempt = {
     ...state.currentAttempt,
     ...patch,
@@ -620,6 +774,11 @@ function calculateResult(attempt, paper) {
 
 async function submitAttempt(reason = "manual") {
   if (!state.currentAttempt) return;
+  if (state.currentAttempt.status !== "submitted"
+    && !attemptSessionBelongsToCurrentTab(state.currentAttempt)) {
+    showBlockedTestSession();
+    return;
+  }
   if (state.currentAttempt.status === "submitted") {
     state.route = "test-result";
     render();
@@ -666,6 +825,10 @@ async function submitAttempt(reason = "manual") {
 function syncTestTimer() {
   const timerRoute = state.route === "test-taking" || state.route === "test-submit";
   if (!timerRoute || !state.currentAttempt || state.currentAttempt.status !== "active") return;
+  if (!attemptSessionBelongsToCurrentTab(state.currentAttempt)) {
+    showBlockedTestSession();
+    return;
+  }
   const remainingMs = remainingAttemptMs(state.currentAttempt);
   const timer = document.querySelector("#testTimer");
   if (timer) timer.textContent = formatDuration(remainingMs);
@@ -1109,9 +1272,41 @@ function renderTestPaperCard(paper) {
   `;
 }
 
+function renderTestSessionBlocked() {
+  const paper = selectedTestPaper();
+  const attempt = state.currentAttempt;
+  app.innerHTML = `
+    <section class="screen">
+      ${topbar("Test already active elsewhere", paper.title, "tests")}
+      <div class="notice">
+        <strong>Test already active elsewhere</strong><br /><br />
+        This test is currently open in another tab, browser, or device. For test security, only the original test window can continue. Your latest saved progress is protected.
+      </div>
+      ${attempt ? `
+        <div class="test-summary">
+          <div><span>Status</span><strong>${attempt.status === "paused" ? "Paused" : "Running"}</strong></div>
+          <div><span>Time left</span><strong>${formatDuration(remainingAttemptMs(attempt))}</strong></div>
+        </div>
+      ` : ""}
+      <div class="notice">If the original test window was closed, wait about 2 minutes and then tap Check Again.</div>
+      ${state.testMessage ? `<div class="form-status status-message">${htmlescape(state.testMessage)}</div>` : ""}
+      <div class="stack">
+        <button class="button" type="button" id="checkTestSession">Check Again</button>
+        <button class="button secondary" type="button" id="returnFromBlockedTest">Return to Tests</button>
+      </div>
+      ${bottomNav("tests")}
+    </section>
+  `;
+}
+
 function renderTestIntro() {
   const paper = selectedTestPaper();
   const attempt = state.currentAttempt;
+  if (state.testSessionBlocked || attemptSessionHeldByAnotherTab(attempt)) {
+    state.testSessionBlocked = true;
+    renderTestSessionBlocked();
+    return;
+  }
   const submitted = attempt?.status === "submitted";
   const resumable = attempt?.status === "active" || attempt?.status === "paused";
   const pauseCount = attempt?.pauseCount || 0;
@@ -1153,6 +1348,11 @@ function renderTestIntro() {
 function renderTestTaking() {
   const paper = selectedTestPaper();
   const attempt = state.currentAttempt;
+  if (state.testSessionBlocked || (attempt?.status !== "submitted" && attemptSessionHeldByAnotherTab(attempt))) {
+    state.testSessionBlocked = true;
+    renderTestSessionBlocked();
+    return;
+  }
   if (!attempt) {
     renderTestIntro();
     return;
@@ -1245,6 +1445,11 @@ function renderTestPalette(paper, attempt) {
 
 function renderSubmitSummary() {
   const paper = selectedTestPaper();
+  if (state.testSessionBlocked
+    || (state.currentAttempt?.status !== "submitted" && !attemptSessionBelongsToCurrentTab(state.currentAttempt))) {
+    showBlockedTestSession();
+    return;
+  }
   const counts = attemptStatusCounts(state.currentAttempt, paper);
   app.innerHTML = `
     <section class="screen">
@@ -1405,6 +1610,7 @@ function render() {
     "test-taking": renderTestTaking,
     "test-submit": renderSubmitSummary,
     "test-result": renderTestResult,
+    "test-session-blocked": renderTestSessionBlocked,
     profile: renderProfile,
     paper: renderPaper
   };
@@ -1565,11 +1771,171 @@ async function handleForgot(event) {
   }
 }
 
+function showBlockedTestSession(attempt = state.currentAttempt) {
+  if (attempt) state.currentAttempt = normalizeTestAttempt(attempt);
+  cancelPendingAttemptAutosave();
+  pendingAttemptSnapshot = null;
+  state.testSessionBlocked = true;
+  state.testPaletteOpen = false;
+  state.testMessage = "This test is active in another tab, browser, or device.";
+  state.route = "test-session-blocked";
+  stopTestSessionHeartbeat();
+  render();
+}
+
+function buildActivatedAttempt(attempt, paper, now = Date.now()) {
+  const base = normalizeTestAttempt(attempt || blankAttempt(paper));
+  const storedPausedRemainingMs = Number(base.remainingMs);
+  const remainingMs = base.status === "paused"
+    ? (Number.isFinite(storedPausedRemainingMs) ? Math.max(0, storedPausedRemainingMs) : testDurationMs(paper))
+    : remainingAttemptMs(base);
+  const resumingPausedAttempt = base.status === "paused";
+  return normalizeTestAttempt({
+    ...base,
+    ...testSessionLeasePatch(now),
+    sessionEnforced: true,
+    status: "active",
+    controlVersion: resumingPausedAttempt ? nextAttemptControlVersion(base) : attemptControlVersion(base),
+    remainingMs,
+    activeStartedAtMs: now,
+    expiresAtMs: now + remainingMs,
+    updatedAtMs: now
+  });
+}
+
+async function acquireTestSession(paper) {
+  const localAttempt = normalizeTestAttempt(state.currentAttempt || blankAttempt(paper));
+  if (!state.firebaseReady) {
+    if (attemptSessionHeldByAnotherTab(localAttempt)) {
+      return { blocked: true, attempt: localAttempt };
+    }
+    const attempt = buildActivatedAttempt(localAttempt, paper);
+    writeLocalTestAttempt(attempt);
+    return { blocked: false, attempt };
+  }
+
+  const claimFromSnapshot = (remoteAttempt) => {
+    const normalizedRemote = normalizeTestAttempt(remoteAttempt);
+    const baseAttempt = normalizedRemote
+      ? bestAvailableAttempt(normalizedRemote, localAttempt)
+      : localAttempt;
+    if (normalizedRemote && attemptSessionHeldByAnotherTab(normalizedRemote)) {
+      return { blocked: true, attempt: normalizedRemote };
+    }
+    if (baseAttempt?.status === "submitted") {
+      if (!normalizedRemote || normalizedRemote.status !== "submitted") {
+        const recoveredSubmission = normalizeTestAttempt({
+          ...baseAttempt,
+          ...testSessionLeasePatch(),
+          sessionEnforced: true,
+          controlVersion: normalizedRemote
+            ? nextAttemptControlVersion(normalizedRemote)
+            : attemptControlVersion(baseAttempt),
+          locked: true,
+          updatedAtMs: Date.now()
+        });
+        return { blocked: false, attempt: recoveredSubmission, submitted: true, needsWrite: true };
+      }
+      return { blocked: false, attempt: baseAttempt, submitted: true };
+    }
+    if (attemptSessionHeldByAnotherTab(baseAttempt)) {
+      return { blocked: true, attempt: baseAttempt };
+    }
+    return { blocked: false, attempt: buildActivatedAttempt(baseAttempt, paper) };
+  };
+
+  if (typeof state.db.runTransaction !== "function") {
+    const snapshot = await state.db.getDoc(testAttemptRef(paper.id));
+    const result = claimFromSnapshot(snapshot.exists() ? snapshot.data() : null);
+    if (!result.blocked && (!result.submitted || result.needsWrite)) {
+      await state.db.setDoc(testAttemptRef(paper.id), attemptSnapshotForRemoteWrite(result.attempt));
+    }
+    return result;
+  }
+
+  return state.db.runTransaction(state.firestore, async (transaction) => {
+    const ref = testAttemptRef(paper.id);
+    const snapshot = await transaction.get(ref);
+    const result = claimFromSnapshot(snapshot.exists() ? snapshot.data() : null);
+    if (!result.blocked && (!result.submitted || result.needsWrite)) {
+      transaction.set(ref, attemptSnapshotForRemoteWrite(result.attempt));
+    }
+    return result;
+  });
+}
+
+async function checkTestSessionAvailability() {
+  const paperId = state.selectedTestPaperId;
+  if (!paperId) return;
+  state.testMessage = "Checking the active test session...";
+  renderTestSessionBlocked();
+  try {
+    let attempt = state.currentAttempt;
+    if (state.firebaseReady) {
+      const snapshot = await state.db.getDoc(testAttemptRef(paperId));
+      attempt = normalizeTestAttempt(snapshot.exists() ? snapshot.data() : null);
+    } else {
+      attempt = readLocalTestAttempt(paperId);
+    }
+    state.currentAttempt = attempt;
+    if (attempt) writeLocalTestAttempt(attempt);
+    if (attempt?.status === "submitted") {
+      state.testSessionBlocked = false;
+      state.testMessage = "";
+      state.route = "test-result";
+      render();
+      return;
+    }
+    if (attemptSessionHeldByAnotherTab(attempt)) {
+      state.testSessionBlocked = true;
+      state.testMessage = "The original test window is still active. Continue there or check again later.";
+      state.route = "test-session-blocked";
+      render();
+      return;
+    }
+    state.testSessionBlocked = false;
+    state.testMessage = "The previous test session is no longer active. You may resume this test here.";
+    state.route = "test-intro";
+    render();
+  } catch (error) {
+    console.error("Could not check active test session", error);
+    state.testMessage = "The active session could not be checked. Please try again.";
+    state.route = "test-session-blocked";
+    render();
+  }
+}
+
+async function releaseCurrentTestSession() {
+  const attempt = normalizeTestAttempt(state.currentAttempt);
+  if (!attempt || !attemptSessionBelongsToCurrentTab(attempt)) {
+    stopTestSessionHeartbeat();
+    return attempt;
+  }
+  stopTestSessionHeartbeat();
+  const released = normalizeTestAttempt({
+    ...clearTestSessionFields(attempt),
+    updatedAtMs: Date.now()
+  });
+  state.currentAttempt = released;
+  await saveTestAttempt(released);
+  return released;
+}
+
 async function openTestPaper(paperId) {
   stopTestAttemptListener();
+  stopTestSessionHeartbeat();
   state.selectedTestPaperId = paperId;
   state.testMessage = "";
+  state.testSessionBlocked = false;
   let attempt = await loadTestAttempt(paperId);
+  if (attemptSessionHeldByAnotherTab(attempt)) {
+    state.currentAttempt = normalizeTestAttempt(attempt);
+    state.testSessionBlocked = true;
+    state.route = "test-session-blocked";
+    startTestAttemptListener(paperId);
+    render();
+    return;
+  }
   attempt = await reconcileClosedTestPause(attempt, paperId);
   state.currentAttempt = normalizeTestAttempt(attempt);
   startTestAttemptListener(paperId);
@@ -1585,44 +1951,51 @@ async function openTestPaper(paperId) {
 
 async function startOrResumeTest() {
   const paper = selectedTestPaper();
-  let attempt = state.currentAttempt;
-  const now = Date.now();
-  if (!attempt) {
-    attempt = blankAttempt(paper);
+  let result;
+  try {
+    result = await acquireTestSession(paper);
+  } catch (error) {
+    console.error("Could not acquire test session", error);
+    const latest = await loadTestAttempt(paper.id).catch(() => state.currentAttempt);
+    if (attemptSessionHeldByAnotherTab(latest)) {
+      showBlockedTestSession(latest);
+      return;
+    }
+    state.testMessage = "The test session could not be started. Please check your connection and try again.";
+    renderTestIntro();
+    return;
   }
-  if (attempt.status === "submitted") {
+  if (result.blocked) {
+    showBlockedTestSession(result.attempt);
+    return;
+  }
+  let attempt = normalizeTestAttempt(result.attempt);
+  if (result.submitted || attempt?.status === "submitted") {
+    state.currentAttempt = attempt;
+    state.testSessionBlocked = false;
     state.route = "test-result";
     render();
     return;
   }
-  const storedPausedRemainingMs = Number(attempt.remainingMs);
-  const remainingMs = attempt.status === "paused"
-    ? (Number.isFinite(storedPausedRemainingMs) ? Math.max(0, storedPausedRemainingMs) : testDurationMs(paper))
-    : remainingAttemptMs(attempt);
-  if (remainingMs <= 0) {
+  if (remainingAttemptMs(attempt) <= 0) {
     state.currentAttempt = { ...attempt, remainingMs: 0 };
     await submitAttempt("timeout");
     return;
   }
-  const resumingPausedAttempt = attempt.status === "paused";
-  attempt = {
-    ...attempt,
-    status: "active",
-    controlVersion: resumingPausedAttempt ? nextAttemptControlVersion(attempt) : attemptControlVersion(attempt),
-    remainingMs,
-    activeStartedAtMs: now,
-    expiresAtMs: now + remainingMs
-  };
+  pendingAttemptSnapshot = null;
+  attemptPersistRetryCount = 0;
+  clearAttemptPersistRetry();
+  setTestSaveMessage("");
   state.currentAttempt = attempt;
+  writeLocalTestAttempt(attempt);
+  state.testSessionBlocked = false;
   state.testQuestionNumber = attempt.currentQuestion || 1;
   state.testQuestionStartedAt = Date.now();
   state.testPaletteOpen = false;
   state.testMessage = "";
   state.route = "test-taking";
+  startTestSessionHeartbeat();
   render();
-  saveTestAttempt(attempt).catch((error) => {
-    console.error("Could not save test start", error);
-  });
   await ensureAttemptFresh();
 }
 
@@ -1643,6 +2016,10 @@ function recordQuestionTime() {
 
 async function pauseActiveTest(source = "manual") {
   if (!state.currentAttempt || state.currentAttempt.status !== "active") return;
+  if (!attemptSessionBelongsToCurrentTab(state.currentAttempt)) {
+    showBlockedTestSession();
+    return;
+  }
   if (Number(state.currentAttempt.pauseCount || 0) >= 2) {
     state.testMessage = "Pause limit reached. You cannot pause this test again. Continue or submit the test.";
     renderTestTaking();
@@ -1674,6 +2051,7 @@ async function pauseActiveTest(source = "manual") {
 
 async function reconcileClosedTestPause(attempt, paperId) {
   if (!attempt || attempt.status !== "active") return attempt;
+  if (attempt.activeClientId && !attemptSessionBelongsToCurrentTab(attempt)) return attempt;
   const markerKey = testCloseMarkerKey(paperId);
   let marker = null;
   try {
@@ -1684,6 +2062,7 @@ async function reconcileClosedTestPause(attempt, paperId) {
     return attempt;
   }
   if (!marker) return attempt;
+  if (marker.clientId && marker.clientId !== currentTestClientId()) return attempt;
   localStorage.removeItem(markerKey);
   const pauseCount = Number(attempt.pauseCount || 0);
   if (pauseCount >= 2) {
@@ -1717,11 +2096,66 @@ function rememberActiveTestClose() {
   localStorage.setItem(testCloseMarkerKey(attempt.paperId), JSON.stringify({
     paperId: attempt.paperId,
     remainingMs: remainingAttemptMs(attempt),
+    clientId: currentTestClientId(),
     atMs: Date.now()
   }));
 }
 
+function stopTestSessionHeartbeat() {
+  if (testSessionHeartbeatTimer) clearInterval(testSessionHeartbeatTimer);
+  testSessionHeartbeatTimer = null;
+}
+
+async function renewTestSessionLease() {
+  const attempt = normalizeTestAttempt(state.currentAttempt);
+  if (!attempt || attempt.status === "submitted" || !attemptSessionBelongsToCurrentTab(attempt)) {
+    stopTestSessionHeartbeat();
+    return;
+  }
+  if (attemptPersistRunning || pendingAttemptSnapshot) return;
+  const now = Date.now();
+  const renewed = normalizeTestAttempt({
+    ...attempt,
+    ...testSessionLeasePatch(now),
+    updatedAtMs: now
+  });
+  state.currentAttempt = renewed;
+  writeLocalTestAttempt(renewed);
+  if (!state.firebaseReady) return;
+  try {
+    await state.db.updateDoc(testAttemptRef(renewed.paperId), {
+      activeClientId: renewed.activeClientId,
+      activeSessionExpiresAtMs: renewed.activeSessionExpiresAtMs,
+      activeSessionHeartbeatAt: typeof state.db.serverTimestamp === "function"
+        ? state.db.serverTimestamp()
+        : renewed.updatedAtMs,
+      lastWriterClientId: renewed.lastWriterClientId,
+      updatedAtMs: renewed.updatedAtMs
+    });
+    setTestSaveMessage("");
+  } catch (error) {
+    console.error("Could not renew active test session", error);
+    setTestSaveMessage("The active test session could not be confirmed. Keep this window open and check your connection.");
+  }
+}
+
+function startTestSessionHeartbeat() {
+  stopTestSessionHeartbeat();
+  const attempt = normalizeTestAttempt(state.currentAttempt);
+  if (!attempt || attempt.status === "submitted" || !attemptSessionBelongsToCurrentTab(attempt)) return;
+  testSessionHeartbeatTimer = setInterval(() => {
+    renewTestSessionLease().catch((error) => {
+      console.error("Test session heartbeat failed", error);
+    });
+  }, TEST_SESSION_HEARTBEAT_MS);
+  testSessionHeartbeatTimer?.unref?.();
+}
+
 function moveTestQuestion(nextNumber) {
+  if (!attemptSessionBelongsToCurrentTab(state.currentAttempt)) {
+    showBlockedTestSession();
+    return;
+  }
   recordQuestionTime();
   const paper = selectedTestPaper();
   const bounded = Math.min(Math.max(Number(nextNumber), 1), paper.questions.length);
@@ -1736,6 +2170,10 @@ function moveTestQuestion(nextNumber) {
 }
 
 function selectTestAnswer(answer) {
+  if (!attemptSessionBelongsToCurrentTab(state.currentAttempt)) {
+    showBlockedTestSession();
+    return;
+  }
   recordQuestionTime();
   const question = activeQuestion();
   patchActiveAttempt({
@@ -1746,6 +2184,10 @@ function selectTestAnswer(answer) {
 }
 
 function clearTestAnswer() {
+  if (!attemptSessionBelongsToCurrentTab(state.currentAttempt)) {
+    showBlockedTestSession();
+    return;
+  }
   recordQuestionTime();
   const question = activeQuestion();
   const answers = { ...(state.currentAttempt.answers || {}) };
@@ -1756,6 +2198,10 @@ function clearTestAnswer() {
 }
 
 function toggleReview() {
+  if (!attemptSessionBelongsToCurrentTab(state.currentAttempt)) {
+    showBlockedTestSession();
+    return;
+  }
   recordQuestionTime();
   const question = activeQuestion();
   const markedForReview = { ...(state.currentAttempt.markedForReview || {}) };
@@ -1796,6 +2242,21 @@ app.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.id === "checkTestSession") {
+    await checkTestSessionAvailability();
+    return;
+  }
+
+  if (event.target.id === "returnFromBlockedTest") {
+    stopTestAttemptListener();
+    stopTestSessionHeartbeat();
+    state.testSessionBlocked = false;
+    state.testMessage = "";
+    state.route = "tests";
+    render();
+    return;
+  }
+
   if (event.target.id === "viewTestResult") {
     state.route = "test-result";
     render();
@@ -1808,11 +2269,15 @@ app.addEventListener("click", async (event) => {
   }
 
   if (event.target.id === "leavePausedTest") {
+    try {
+      await releaseCurrentTestSession();
+      state.testMessage = "Test window closed. You can resume this test from another tab or device.";
+    } catch (error) {
+      console.error("Could not release paused test session", error);
+      state.testMessage = "The test window could not be closed safely. Please try again.";
+    }
     state.route = "test-intro";
     render();
-    flushCurrentAttempt().catch((error) => {
-      console.error("Could not save before leaving paused test window", error);
-    });
     return;
   }
 
@@ -1935,6 +2400,7 @@ app.addEventListener("click", async (event) => {
 
   if (event.target.id === "logoutButton") {
     stopTestAttemptListener();
+    stopTestSessionHeartbeat();
     localStorage.setItem("hau_signed_out", "true");
     if (state.firebaseReady && state.firebaseAuth.currentUser) {
       await state.auth.signOut(state.firebaseAuth).catch((error) => {
@@ -2015,6 +2481,11 @@ app.addEventListener("input", (event) => {
 
 window.addEventListener("pagehide", rememberActiveTestClose);
 window.addEventListener("beforeunload", rememberActiveTestClose);
+window.addEventListener("focus", () => {
+  if (attemptSessionBelongsToCurrentTab(state.currentAttempt)) {
+    renewTestSessionLease().catch(() => {});
+  }
+});
 
 async function boot() {
   if (Array.isArray(window.HAU_PAPERS)) {
