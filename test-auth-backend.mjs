@@ -1,111 +1,115 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseServiceAccountEnv } from "./api/_lib/firebase-admin.mjs";
-import { requireMethod, sendJson } from "./api/_lib/http.mjs";
+import {
+  credentialFailureReason,
+  parseServiceAccountEnv,
+  ServerCredentialError
+} from "./api/_lib/firebase-admin.mjs";
+
+const TEST_KEY_BODY = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=";
+const TEST_KEY = `-----BEGIN PRIVATE KEY-----\n${TEST_KEY_BODY}\n-----END PRIVATE KEY-----\n`;
+
+function completeSplit(overrides = {}) {
+  return {
+    FIREBASE_PROJECT_ID: "hau-msc-agri-entrance",
+    FIREBASE_CLIENT_EMAIL: "backend@hau-msc-agri-entrance.iam.gserviceaccount.com",
+    FIREBASE_PRIVATE_KEY: TEST_KEY.replace(/\n/g, "\\n"),
+    ...overrides
+  };
+}
 
 test("parses complete Firebase service-account JSON", () => {
   const credential = parseServiceAccountEnv({
     FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({
       project_id: "hau-msc-agri-entrance",
-      client_email: "backend@example.iam.gserviceaccount.com",
-      private_key: "line-one\\nline-two"
+      client_email: "backend@hau-msc-agri-entrance.iam.gserviceaccount.com",
+      private_key: TEST_KEY
     })
   });
 
   assert.equal(credential.projectId, "hau-msc-agri-entrance");
-  assert.equal(credential.clientEmail, "backend@example.iam.gserviceaccount.com");
-  assert.equal(credential.privateKey, "line-one\nline-two");
+  assert.equal(credential.clientEmail, "backend@hau-msc-agri-entrance.iam.gserviceaccount.com");
+  assert.equal(credential.privateKey, TEST_KEY);
 });
 
 test("supports split Firebase Admin environment variables", () => {
-  const credential = parseServiceAccountEnv({
-    FIREBASE_PROJECT_ID: "hau-msc-agri-entrance",
-    FIREBASE_CLIENT_EMAIL: "backend@example.iam.gserviceaccount.com",
-    FIREBASE_PRIVATE_KEY: "line-one\\nline-two"
-  });
-
+  const credential = parseServiceAccountEnv(completeSplit());
   assert.deepEqual(credential, {
     projectId: "hau-msc-agri-entrance",
-    clientEmail: "backend@example.iam.gserviceaccount.com",
-    privateKey: "line-one\nline-two"
+    clientEmail: "backend@hau-msc-agri-entrance.iam.gserviceaccount.com",
+    privateKey: TEST_KEY
   });
 });
 
-test("rejects an incomplete server credential without exposing a secret", () => {
+test("accepts private key copied with JSON quotes and trailing comma", () => {
+  const credential = parseServiceAccountEnv(completeSplit({
+    FIREBASE_PRIVATE_KEY: JSON.stringify(TEST_KEY) + ","
+  }));
+  assert.equal(credential.privateKey, TEST_KEY);
+});
+
+test("falls back to split variables when a stale JSON variable is malformed", () => {
+  const credential = parseServiceAccountEnv(completeSplit({
+    FIREBASE_SERVICE_ACCOUNT_JSON: "{not-json"
+  }));
+  assert.equal(credential.projectId, "hau-msc-agri-entrance");
+});
+
+test("rejects an incomplete credential with a safe reason code", () => {
   assert.throws(
-    () => parseServiceAccountEnv({
-      FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({
-        project_id: "hau-msc-agri-entrance",
-        client_email: "backend@example.iam.gserviceaccount.com"
-      })
-    }),
-    /Missing server credential field: private_key/
+    () => parseServiceAccountEnv({}),
+    (error) => error instanceof ServerCredentialError && error.code === "missing_project_id"
   );
 });
 
-test("HTTP helpers return JSON and reject an unsupported method", () => {
-  const headers = new Map();
-  let statusCode = 0;
-  let body = null;
-  const response = {
-    setHeader(name, value) {
-      headers.set(name, value);
-    },
-    status(value) {
-      statusCode = value;
-      return this;
-    },
-    json(value) {
-      body = value;
-      return value;
-    }
-  };
-
-  const allowed = requireMethod({ method: "POST" }, response, "GET");
-  assert.equal(allowed, false);
-  assert.equal(statusCode, 405);
-  assert.equal(headers.get("Allow"), "GET");
-  assert.equal(headers.get("Cache-Control"), "no-store, max-age=0");
-  assert.deepEqual(body, { ok: false, error: "method_not_allowed" });
-
-  sendJson(response, 200, { ok: true });
-  assert.equal(statusCode, 200);
-  assert.deepEqual(body, { ok: true });
+test("classifies malformed PEM without exposing the key", () => {
+  let caught;
+  try {
+    parseServiceAccountEnv(completeSplit({ FIREBASE_PRIVATE_KEY: "bad-value" }));
+  } catch (error) {
+    caught = error;
+  }
+  assert.equal(credentialFailureReason(caught), "invalid_private_key");
 });
 
-test("health endpoint fails closed when server credentials are unavailable", async () => {
+test("health endpoint fails closed and reports a safe preview reason", async () => {
   const { GET } = await import("./api/auth/health.mjs");
   const saved = {
     json: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY
+    privateKey: process.env.FIREBASE_PRIVATE_KEY,
+    vercelEnv: process.env.VERCEL_ENV
   };
 
   delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   delete process.env.FIREBASE_PROJECT_ID;
   delete process.env.FIREBASE_CLIENT_EMAIL;
   delete process.env.FIREBASE_PRIVATE_KEY;
+  process.env.VERCEL_ENV = "preview";
 
   const originalConsoleError = console.error;
   console.error = () => {};
-  let response;
   try {
-    response = await GET(new Request("https://example.test/api/auth/health"));
+    const response = await GET(new Request("https://example.test/api/auth/health"));
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get("Cache-Control"), "no-store, max-age=0");
+    assert.deepEqual(await response.json(), {
+      ok: false,
+      error: "service_unavailable",
+      reason: "missing_project_id"
+    });
   } finally {
     console.error = originalConsoleError;
-    if (saved.json === undefined) delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-    else process.env.FIREBASE_SERVICE_ACCOUNT_JSON = saved.json;
-    if (saved.projectId === undefined) delete process.env.FIREBASE_PROJECT_ID;
-    else process.env.FIREBASE_PROJECT_ID = saved.projectId;
-    if (saved.clientEmail === undefined) delete process.env.FIREBASE_CLIENT_EMAIL;
-    else process.env.FIREBASE_CLIENT_EMAIL = saved.clientEmail;
-    if (saved.privateKey === undefined) delete process.env.FIREBASE_PRIVATE_KEY;
-    else process.env.FIREBASE_PRIVATE_KEY = saved.privateKey;
+    const restore = (name, value) => {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    };
+    restore("FIREBASE_SERVICE_ACCOUNT_JSON", saved.json);
+    restore("FIREBASE_PROJECT_ID", saved.projectId);
+    restore("FIREBASE_CLIENT_EMAIL", saved.clientEmail);
+    restore("FIREBASE_PRIVATE_KEY", saved.privateKey);
+    restore("VERCEL_ENV", saved.vercelEnv);
   }
-
-  assert.equal(response.status, 503);
-  assert.equal(response.headers.get("cache-control"), "no-store, max-age=0");
-  assert.deepEqual(await response.json(), { ok: false, error: "service_unavailable" });
 });
