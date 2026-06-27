@@ -1166,6 +1166,14 @@ function refocusInput(id) {
   });
 }
 
+function focusCurrentTestPaletteQuestion() {
+  requestAnimationFrame(() => {
+    const currentButton = app.querySelector(".test-number-grid button.current");
+    if (!currentButton) return;
+    currentButton.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+  });
+}
+
 function setError(name, value) {
   const element = app.querySelector(`[data-error="${name}"]`);
   if (!element) return;
@@ -1594,6 +1602,7 @@ app.addEventListener("click", async (event) => {
     if (state.currentAttempt?.status === "paused") return;
     state.testPaletteOpen = true;
     renderTestTaking();
+    focusCurrentTestPaletteQuestion();
     return;
   }
 

@@ -19,9 +19,13 @@ async function run() {
   const data = fs.readFileSync("src/data/papers-data.js", "utf8");
   const app = fs.readFileSync("src/app.js", "utf8");
   const handlers = {};
+  const scrollCalls = [];
+  const currentPaletteButton = {
+    scrollIntoView: (options) => scrollCalls.push(options)
+  };
   const appShell = {
     innerHTML: "",
-    querySelector: () => null,
+    querySelector: (selector) => (selector === ".test-number-grid button.current" ? currentPaletteButton : null),
     addEventListener: (type, handler) => {
       handlers[type] = handler;
     }
@@ -37,6 +41,7 @@ async function run() {
     Promise,
     assert,
     handlers,
+    scrollCalls,
     fetch: async () => ({ json: async () => [] }),
     crypto: { randomUUID: () => "test-uid" },
     localStorage: createStorage(),
@@ -145,6 +150,11 @@ async function run() {
       assert(state.testQuestionNumber === 3, "resume should return to last question");
       assert(state.currentAttempt.answers["1"] === "A", "resume should keep q1 answer");
       assert(state.currentAttempt.answers["2"] === "B", "resume should keep q2 answer");
+      scrollCalls.length = 0;
+      state.testPaletteOpen = false;
+      await handlers.click({ target: { id: "testPaletteOpen", closest: () => null } });
+      assert(scrollCalls.length === 1, "opening palette should scroll to current question");
+      assert(scrollCalls[0].block === "center", "current palette question should be centered");
       localStorage.clear();
       state.currentAttempt = null;
       state.route = "test-intro";
