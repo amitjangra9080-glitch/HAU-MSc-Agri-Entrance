@@ -60,6 +60,10 @@ async function run() {
     "new test sessions must opt into strict single-session enforcement"
   );
   assert(
+    app.includes("attemptSnapshotWasSuperseded"),
+    "stale writes must be ignored after a newer remote test state is loaded"
+  );
+  assert(
     firestoreRules.includes("activeSessionHeartbeatAt"),
     "Firestore rules must use a server-timestamp heartbeat for session expiry"
   );
@@ -450,6 +454,55 @@ async function run() {
       assert(applyRemoteTestAttempt(remoteSubmittedAttempt), "newer remote submission should be applied immediately");
       assert(state.currentAttempt.status === "submitted", "submission in one tab should submit every open tab");
       assert(state.route === "test-result", "remote submission should open the final result");
+
+      // A stale in-flight save from the former window may be rejected after another
+      // window submits. That expected rejection must not show a false save warning.
+      testClientId = "former-window";
+      const staleBeforeRemoteSubmit = {
+        ...blankAttempt(state.papers[0]),
+        status: "active",
+        controlVersion: 10,
+        activeClientId: "former-window",
+        activeSessionExpiresAtMs: Date.now() + TEST_SESSION_LEASE_MS,
+        lastWriterClientId: "former-window",
+        updatedAtMs: 1000
+      };
+      const authoritativeRemoteSubmission = {
+        ...staleBeforeRemoteSubmit,
+        status: "submitted",
+        controlVersion: 11,
+        locked: true,
+        result: calculateResult(staleBeforeRemoteSubmit, state.papers[0]),
+        submittedAtMs: Date.now(),
+        activeClientId: "submitting-window",
+        activeSessionExpiresAtMs: Date.now() + TEST_SESSION_LEASE_MS,
+        lastWriterClientId: "submitting-window",
+        updatedAtMs: 2000
+      };
+      state.currentAttempt = staleBeforeRemoteSubmit;
+      state.route = "test-taking";
+      state.testSaveMessage = "";
+      pendingAttemptSnapshot = JSON.parse(JSON.stringify(staleBeforeRemoteSubmit));
+      attemptPersistRunning = false;
+      attemptPersistRetryCount = 0;
+      clearAttemptPersistRetry();
+      state.firebaseReady = true;
+      state.firestore = {};
+      state.db = {
+        doc: (_firestore, collection, id) => ({ collection, id }),
+        setDoc: async () => {
+          applyRemoteTestAttempt(authoritativeRemoteSubmission);
+          const error = new Error("Missing or insufficient permissions");
+          error.code = "permission-denied";
+          throw error;
+        }
+      };
+      await persistPendingAttempt();
+      assert(state.currentAttempt.status === "submitted", "newer remote submission must remain authoritative");
+      assert(state.route === "test-result", "stale save rejection must keep the shared result visible");
+      assert(state.testSaveMessage === "", "stale save rejection after remote submission must not show a save warning");
+      assert(pendingAttemptSnapshot === null, "superseded stale save must not be retried");
+      state.firebaseReady = false;
 
       // Only the original test window may control an active attempt.
       state.firebaseReady = false;
