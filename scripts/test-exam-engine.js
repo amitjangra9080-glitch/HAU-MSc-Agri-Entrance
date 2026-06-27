@@ -194,11 +194,16 @@ async function run() {
       };
       state.currentAttempt = blankAttempt(state.papers[0]);
       state.route = "test-taking";
+      selectTestAnswer("D");
       await pauseActiveTest("manual");
       assert(state.currentAttempt.status === "paused", "pause should still update UI state if save fails");
+      assert(state.currentAttempt.answers["1"] === "D", "pause should keep local answer if save fails");
       assert(app.innerHTML.includes("Resume Test"), "failed pause save should still show paused controls");
       await handlers.click({ target: { id: "leavePausedTest", closest: () => null } });
       assert(state.route === "test-intro", "quit test window should leave immediately even if save fails");
+      state.currentAttempt = null;
+      await openTestPaper(state.selectedTestPaperId);
+      assert(state.currentAttempt.answers["1"] === "D", "reopen should restore local answer if Firestore is stale");
       state.currentAttempt = blankAttempt(state.papers[0]);
       state.route = "test-submit";
       await submitAttempt("manual");

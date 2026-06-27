@@ -184,6 +184,31 @@ function testCloseMarkerKey(paperId) {
   return `hau_pending_test_pause_${testAttemptId(paperId)}`;
 }
 
+function readLocalTestAttempt(paperId) {
+  try {
+    return JSON.parse(localStorage.getItem(demoAttemptKey(paperId)) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalTestAttempt(attempt) {
+  if (!attempt?.paperId) return;
+  localStorage.setItem(demoAttemptKey(attempt.paperId), JSON.stringify(attempt));
+}
+
+function bestAvailableAttempt(remoteAttempt, localAttempt) {
+  if (!remoteAttempt) return localAttempt;
+  if (!localAttempt) return remoteAttempt;
+  if (remoteAttempt.uid && localAttempt.uid && remoteAttempt.uid !== localAttempt.uid) return remoteAttempt;
+  if (remoteAttempt.paperId !== localAttempt.paperId) return remoteAttempt;
+  if (remoteAttempt.locked || remoteAttempt.status === "submitted") return remoteAttempt;
+  if (localAttempt.locked || localAttempt.status === "submitted") return localAttempt;
+  return Number(localAttempt.updatedAtMs || 0) >= Number(remoteAttempt.updatedAtMs || 0)
+    ? localAttempt
+    : remoteAttempt;
+}
+
 function blankAttempt(paper) {
   const now = Date.now();
   const durationMs = testDurationMs(paper);
@@ -230,16 +255,20 @@ function timeTakenMs(attempt) {
 
 async function loadTestAttempt(paperId) {
   if (!state.user) return null;
+  const localAttempt = readLocalTestAttempt(paperId);
   if (state.firebaseReady) {
     const snap = await state.db.getDoc(testAttemptRef(paperId));
-    return snap.exists() ? snap.data() : null;
+    const attempt = bestAvailableAttempt(snap.exists() ? snap.data() : null, localAttempt);
+    if (attempt) writeLocalTestAttempt(attempt);
+    return attempt;
   }
-  return JSON.parse(localStorage.getItem(demoAttemptKey(paperId)) || "null");
+  return localAttempt;
 }
 
 async function saveTestAttempt(attempt) {
   const nextAttempt = { ...attempt, updatedAtMs: Date.now() };
   state.currentAttempt = nextAttempt;
+  writeLocalTestAttempt(nextAttempt);
   pendingAttemptSnapshot = JSON.parse(JSON.stringify(nextAttempt));
   await persistPendingAttempt();
   return nextAttempt;
