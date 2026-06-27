@@ -52,6 +52,9 @@ const icons = {
 
 const optionKeys = ["A", "B", "C", "D"];
 let attemptAutosaveTimer = null;
+let attemptPersistRunning = false;
+let pendingAttemptSnapshot = null;
+let attemptPersistPromise = Promise.resolve();
 const testTicker = setInterval(syncTestTimer, 1000);
 
 function saveDemoUsers() {
@@ -237,12 +240,35 @@ async function loadTestAttempt(paperId) {
 async function saveTestAttempt(attempt) {
   const nextAttempt = { ...attempt, updatedAtMs: Date.now() };
   state.currentAttempt = nextAttempt;
-  if (state.firebaseReady) {
-    await state.db.setDoc(testAttemptRef(nextAttempt.paperId), nextAttempt);
-  } else {
-    localStorage.setItem(demoAttemptKey(nextAttempt.paperId), JSON.stringify(nextAttempt));
-  }
+  pendingAttemptSnapshot = JSON.parse(JSON.stringify(nextAttempt));
+  await persistPendingAttempt();
   return nextAttempt;
+}
+
+async function writeAttemptSnapshot(snapshot) {
+  if (state.firebaseReady) {
+    await state.db.setDoc(testAttemptRef(snapshot.paperId), snapshot);
+  } else {
+    localStorage.setItem(demoAttemptKey(snapshot.paperId), JSON.stringify(snapshot));
+  }
+}
+
+function persistPendingAttempt() {
+  if (attemptPersistRunning) return attemptPersistPromise;
+  attemptPersistRunning = true;
+  attemptPersistPromise = (async () => {
+    try {
+      while (pendingAttemptSnapshot) {
+        const snapshot = pendingAttemptSnapshot;
+        pendingAttemptSnapshot = null;
+        await writeAttemptSnapshot(snapshot);
+      }
+    } finally {
+      attemptPersistRunning = false;
+      if (pendingAttemptSnapshot) await persistPendingAttempt();
+    }
+  })();
+  return attemptPersistPromise;
 }
 
 function saveTestAttemptQuietly(attempt) {
@@ -259,6 +285,11 @@ function saveTestAttemptQuietly(attempt) {
 function cancelPendingAttemptAutosave() {
   clearTimeout(attemptAutosaveTimer);
   attemptAutosaveTimer = null;
+}
+
+async function flushCurrentAttempt() {
+  cancelPendingAttemptAutosave();
+  if (state.currentAttempt) await saveTestAttempt(state.currentAttempt);
 }
 
 function applyAttemptPatch(patch) {
@@ -350,6 +381,7 @@ async function submitAttempt(reason = "manual") {
   if (state.testSubmitting) return;
   state.testSubmitting = true;
   try {
+    if (state.route === "test-submit") renderSubmitSummary();
     await recordQuestionTime();
     cancelPendingAttemptAutosave();
     const paper = selectedTestPaper();
@@ -862,6 +894,7 @@ function renderTestTaking() {
   }
   const question = activeQuestion();
   const selectedAnswer = attempt.answers?.[question.number] || "";
+  const paused = attempt.status === "paused";
   const remainingMs = remainingAttemptMs(attempt);
   if (remainingMs <= 0) {
     submitAttempt("timeout");
@@ -880,25 +913,36 @@ function renderTestTaking() {
         <h2>${htmlescape(question.question)}</h2>
         <div class="test-options">
           ${optionKeys.map((key) => `
-            <button class="${selectedAnswer === key ? "selected" : ""}" type="button" data-test-answer="${key}">
+            <button class="${selectedAnswer === key ? "selected" : ""}" type="button" data-test-answer="${key}" ${paused ? "disabled" : ""}>
               <span>${key}</span>
               <strong>${htmlescape(question.options?.[key] || "")}</strong>
             </button>
           `).join("")}
         </div>
       </article>
+      ${paused ? `<div class="notice">Test is paused. Resume to continue answering.</div>` : ""}
       <div class="test-actions">
-        <button class="button secondary" type="button" id="prevTestQuestion">Previous</button>
-        <button class="button secondary" type="button" id="clearTestAnswer">Clear</button>
-        <button class="button secondary" type="button" id="markTestReview">${attempt.markedForReview?.[question.number] ? "Unmark" : "Mark"}</button>
-        <button class="button" type="button" id="nextTestQuestion">Next</button>
+        <button class="button secondary" type="button" id="prevTestQuestion" ${paused ? "disabled" : ""}>Previous</button>
+        <button class="button secondary" type="button" id="clearTestAnswer" ${paused ? "disabled" : ""}>Clear</button>
+        <button class="button secondary" type="button" id="markTestReview" ${paused ? "disabled" : ""}>${attempt.markedForReview?.[question.number] ? "Unmark" : "Mark"}</button>
+        <button class="button" type="button" id="nextTestQuestion" ${paused ? "disabled" : ""}>Next</button>
       </div>
-      <button class="question-nav-handle test-palette-handle" type="button" id="testPaletteOpen">Palette</button>
+      <button class="question-nav-handle test-palette-handle" type="button" id="testPaletteOpen" ${paused ? "disabled" : ""}>Palette</button>
       ${renderTestPalette(paper, attempt)}
-      <button class="button secondary test-submit-button" type="button" id="pauseTestButton" ${Number(attempt.pauseCount || 0) >= 2 ? "disabled" : ""}>
-        ${Number(attempt.pauseCount || 0) >= 2 ? "Pause limit reached" : "Pause Test"}
-      </button>
-      <button class="button danger test-submit-button" type="button" id="openSubmitSummary">Submit Test</button>
+      ${
+        paused
+          ? `
+            <button class="button test-submit-button" type="button" id="resumePausedTest">Resume Test</button>
+            <button class="button secondary test-submit-button" type="button" id="leavePausedTest">Quit Test Window</button>
+            <button class="button danger test-submit-button" type="button" id="openSubmitSummary">Submit Test</button>
+          `
+          : `
+            <button class="button secondary test-submit-button" type="button" id="pauseTestButton" ${Number(attempt.pauseCount || 0) >= 2 ? "disabled" : ""}>
+              ${Number(attempt.pauseCount || 0) >= 2 ? "Pause limit reached" : "Pause Test"}
+            </button>
+            <button class="button danger test-submit-button" type="button" id="openSubmitSummary">Submit Test</button>
+          `
+      }
     </section>
   `;
 }
@@ -1261,16 +1305,15 @@ async function openTestPaper(paperId) {
 async function startOrResumeTest() {
   const paper = selectedTestPaper();
   let attempt = state.currentAttempt;
+  const now = Date.now();
   if (!attempt) {
     attempt = blankAttempt(paper);
-    await saveTestAttempt(attempt);
   }
   if (attempt.status === "submitted") {
     state.route = "test-result";
     render();
     return;
   }
-  const now = Date.now();
   const remainingMs = attempt.status === "paused"
     ? Math.max(0, attempt.remainingMs || testDurationMs(paper))
     : remainingAttemptMs(attempt);
@@ -1281,14 +1324,17 @@ async function startOrResumeTest() {
     activeStartedAtMs: now,
     expiresAtMs: now + remainingMs
   };
-  await saveTestAttempt(attempt);
   state.currentAttempt = attempt;
   state.testQuestionNumber = attempt.currentQuestion || 1;
   state.testQuestionStartedAt = Date.now();
   state.testPaletteOpen = false;
   state.route = "test-taking";
-  await ensureAttemptFresh();
   render();
+  saveTestAttempt(attempt).catch((error) => {
+    console.error("Could not save test start", error);
+    state.testMessage = "Test opened, but saving is having trouble. Please keep the page open.";
+  });
+  await ensureAttemptFresh();
 }
 
 function patchActiveAttempt(patch) {
@@ -1314,7 +1360,7 @@ async function pauseActiveTest(source = "manual") {
     return;
   }
   recordQuestionTime();
-  cancelPendingAttemptAutosave();
+  await flushCurrentAttempt();
   const remainingMs = remainingAttemptMs(state.currentAttempt);
   const attempt = {
     ...state.currentAttempt,
@@ -1326,12 +1372,15 @@ async function pauseActiveTest(source = "manual") {
     activeStartedAtMs: null,
     expiresAtMs: null
   };
-  await saveTestAttempt(attempt);
   localStorage.removeItem(testCloseMarkerKey(attempt.paperId));
   state.currentAttempt = attempt;
   state.testMessage = `Test paused. Pauses used: ${attempt.pauseCount}/2.`;
-  state.route = "test-intro";
+  state.route = "test-taking";
   render();
+  saveTestAttempt(attempt).catch((error) => {
+    console.error("Could not save paused test", error);
+    state.testMessage = "Test paused, but saving is having trouble. Please keep the page open.";
+  });
 }
 
 async function reconcileClosedTestPause(attempt, paperId) {
@@ -1392,11 +1441,15 @@ function moveTestQuestion(nextNumber) {
 function selectTestAnswer(answer) {
   recordQuestionTime();
   const question = activeQuestion();
-  patchActiveAttempt({
+  const attempt = patchActiveAttempt({
     answers: { [question.number]: answer },
     visited: { [question.number]: true }
   });
   renderTestTaking();
+  saveTestAttempt(attempt).catch((error) => {
+    console.error("Could not save selected answer", error);
+    state.testMessage = "Answer selected, but saving is having trouble. Please keep the page open.";
+  });
 }
 
 function clearTestAnswer() {
@@ -1456,28 +1509,45 @@ app.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.id === "resumePausedTest") {
+    await startOrResumeTest();
+    return;
+  }
+
+  if (event.target.id === "leavePausedTest") {
+    await flushCurrentAttempt();
+    state.route = "test-intro";
+    render();
+    return;
+  }
+
   const answerButton = event.target.closest("[data-test-answer]");
   if (answerButton) {
+    if (state.currentAttempt?.status === "paused") return;
     await selectTestAnswer(answerButton.dataset.testAnswer);
     return;
   }
 
   if (event.target.id === "prevTestQuestion") {
+    if (state.currentAttempt?.status === "paused") return;
     await moveTestQuestion(state.testQuestionNumber - 1);
     return;
   }
 
   if (event.target.id === "nextTestQuestion") {
+    if (state.currentAttempt?.status === "paused") return;
     await moveTestQuestion(state.testQuestionNumber + 1);
     return;
   }
 
   if (event.target.id === "clearTestAnswer") {
+    if (state.currentAttempt?.status === "paused") return;
     await clearTestAnswer();
     return;
   }
 
   if (event.target.id === "markTestReview") {
+    if (state.currentAttempt?.status === "paused") return;
     await toggleReview();
     return;
   }
@@ -1495,6 +1565,7 @@ app.addEventListener("click", async (event) => {
   }
 
   if (event.target.id === "testPaletteOpen") {
+    if (state.currentAttempt?.status === "paused") return;
     state.testPaletteOpen = true;
     renderTestTaking();
     return;
@@ -1508,6 +1579,7 @@ app.addEventListener("click", async (event) => {
 
   const testJumpButton = event.target.closest("[data-test-jump]");
   if (testJumpButton) {
+    if (state.currentAttempt?.status === "paused") return;
     state.testPaletteOpen = false;
     await moveTestQuestion(Number(testJumpButton.dataset.testJump));
     return;
@@ -1526,9 +1598,6 @@ app.addEventListener("click", async (event) => {
   }
 
   if (event.target.id === "confirmSubmitTest") {
-    state.testSubmitting = true;
-    renderSubmitSummary();
-    state.testSubmitting = false;
     await submitAttempt("manual");
     return;
   }
