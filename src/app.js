@@ -16,6 +16,7 @@ const state = {
   testQuestionStartedAt: Date.now(),
   testPaletteOpen: false,
   testMessage: "",
+  testSaveMessage: "",
   testTick: Date.now(),
   testSubmitting: false,
   auth: null,
@@ -55,6 +56,10 @@ let attemptAutosaveTimer = null;
 let attemptPersistRunning = false;
 let pendingAttemptSnapshot = null;
 let attemptPersistPromise = Promise.resolve();
+let attemptPersistRetryTimer = null;
+let attemptPersistRetryCount = 0;
+const ATTEMPT_PERSIST_MAX_RETRIES = 3;
+const ATTEMPT_PERSIST_RETRY_DELAY_MS = 1200;
 const testTicker = setInterval(syncTestTimer, 1000);
 
 function saveDemoUsers() {
@@ -257,12 +262,55 @@ async function loadTestAttempt(paperId) {
   if (!state.user) return null;
   const localAttempt = readLocalTestAttempt(paperId);
   if (state.firebaseReady) {
-    const snap = await state.db.getDoc(testAttemptRef(paperId));
-    const attempt = bestAvailableAttempt(snap.exists() ? snap.data() : null, localAttempt);
-    if (attempt) writeLocalTestAttempt(attempt);
-    return attempt;
+    try {
+      const snap = await state.db.getDoc(testAttemptRef(paperId));
+      const remoteAttempt = snap.exists() ? snap.data() : null;
+      const attempt = bestAvailableAttempt(remoteAttempt, localAttempt);
+      if (attempt) writeLocalTestAttempt(attempt);
+      const localIsChosen = Boolean(localAttempt && attempt === localAttempt);
+      const localIsNewer = Number(localAttempt?.updatedAtMs || 0) > Number(remoteAttempt?.updatedAtMs || 0);
+      if (localIsChosen && (!remoteAttempt || localIsNewer || localAttempt.locked || localAttempt.status === "submitted")) {
+        pendingAttemptSnapshot = JSON.parse(JSON.stringify(localAttempt));
+        attemptPersistRetryCount = 0;
+        clearAttemptPersistRetry();
+        persistPendingAttempt().catch((error) => {
+          console.error("Could not restore newer local test progress to Firestore", error);
+        });
+      }
+      return attempt;
+    } catch (error) {
+      console.error("Could not load test attempt from Firestore", error);
+      setTestSaveMessage("Cloud sync is temporarily unavailable. Continuing with the latest progress saved on this device.");
+      return localAttempt;
+    }
   }
   return localAttempt;
+}
+
+function setTestSaveMessage(message) {
+  state.testSaveMessage = message;
+  const status = document.querySelector("#testSaveStatus");
+  if (!status) return;
+  status.hidden = !message;
+  status.textContent = message;
+}
+
+function clearAttemptPersistRetry() {
+  if (attemptPersistRetryTimer) clearTimeout(attemptPersistRetryTimer);
+  attemptPersistRetryTimer = null;
+}
+
+function scheduleAttemptPersistRetry() {
+  if (!pendingAttemptSnapshot || attemptPersistRetryTimer || attemptPersistRetryCount >= ATTEMPT_PERSIST_MAX_RETRIES) return;
+  const delay = ATTEMPT_PERSIST_RETRY_DELAY_MS * (attemptPersistRetryCount + 1);
+  attemptPersistRetryTimer = setTimeout(() => {
+    attemptPersistRetryTimer = null;
+    attemptPersistRetryCount += 1;
+    persistPendingAttempt().catch((error) => {
+      console.error("Test save retry failed", error);
+    });
+  }, delay);
+  attemptPersistRetryTimer?.unref?.();
 }
 
 async function saveTestAttempt(attempt) {
@@ -270,6 +318,8 @@ async function saveTestAttempt(attempt) {
   state.currentAttempt = nextAttempt;
   writeLocalTestAttempt(nextAttempt);
   pendingAttemptSnapshot = JSON.parse(JSON.stringify(nextAttempt));
+  attemptPersistRetryCount = 0;
+  clearAttemptPersistRetry();
   await persistPendingAttempt();
   return nextAttempt;
 }
@@ -284,17 +334,24 @@ async function writeAttemptSnapshot(snapshot) {
 
 function persistPendingAttempt() {
   if (attemptPersistRunning) return attemptPersistPromise;
+  if (!pendingAttemptSnapshot) return Promise.resolve();
   attemptPersistRunning = true;
   attemptPersistPromise = (async () => {
     try {
       while (pendingAttemptSnapshot) {
         const snapshot = pendingAttemptSnapshot;
-        pendingAttemptSnapshot = null;
         await writeAttemptSnapshot(snapshot);
+        if (pendingAttemptSnapshot === snapshot) pendingAttemptSnapshot = null;
+        attemptPersistRetryCount = 0;
+        clearAttemptPersistRetry();
+        setTestSaveMessage("");
       }
+    } catch (error) {
+      setTestSaveMessage("Saving is having trouble. Your latest progress is safe on this device and will retry automatically.");
+      scheduleAttemptPersistRetry();
+      throw error;
     } finally {
       attemptPersistRunning = false;
-      if (pendingAttemptSnapshot) await persistPendingAttempt();
     }
   })();
   return attemptPersistPromise;
@@ -304,7 +361,6 @@ function saveTestAttemptQuietly(attempt) {
   state.currentAttempt = { ...attempt, updatedAtMs: Date.now() };
   saveTestAttempt(state.currentAttempt).catch((error) => {
     console.error("Test autosave failed", error);
-    state.testMessage = "Autosave is having trouble. Your latest tap is still kept on this device.";
   });
 }
 
@@ -367,6 +423,17 @@ function attemptStatusCounts(attempt, paper) {
   }, { "not-visited": 0, "not-answered": 0, answered: 0, review: 0, "answered-review": 0 });
 }
 
+function acceptedCorrectOptions(correctOption) {
+  return String(correctOption || "")
+    .split("/")
+    .map((option) => option.trim())
+    .filter((option) => optionKeys.includes(option));
+}
+
+function isAcceptedCorrectAnswer(selected, correctOption) {
+  return Boolean(selected) && acceptedCorrectOptions(correctOption).includes(selected);
+}
+
 function calculateResult(attempt, paper) {
   let correct = 0;
   let incorrect = 0;
@@ -374,7 +441,7 @@ function calculateResult(attempt, paper) {
   const review = {};
   paper.questions.forEach((question) => {
     const selected = attempt.answers?.[question.number] || "";
-    const isCorrect = selected && selected === question.correctOption;
+    const isCorrect = isAcceptedCorrectAnswer(selected, question.correctOption);
     if (!selected) unattempted += 1;
     else if (isCorrect) correct += 1;
     else incorrect += 1;
@@ -448,11 +515,12 @@ async function submitAttempt(reason = "manual") {
 }
 
 function syncTestTimer() {
-  if (state.route !== "test-taking" || !state.currentAttempt || state.currentAttempt.status !== "active") return;
+  const timerRoute = state.route === "test-taking" || state.route === "test-submit";
+  if (!timerRoute || !state.currentAttempt || state.currentAttempt.status !== "active") return;
   const remainingMs = remainingAttemptMs(state.currentAttempt);
   const timer = document.querySelector("#testTimer");
   if (timer) timer.textContent = formatDuration(remainingMs);
-  if (remainingMs <= 0) submitAttempt("timeout");
+  if (remainingMs <= 0) return submitAttempt("timeout");
 }
 
 async function ensureAttemptFresh() {
@@ -967,6 +1035,8 @@ function renderTestTaking() {
         </div>
       </article>
       ${paused ? `<div class="notice">Test is paused. Resume to continue answering.</div>` : ""}
+      ${state.testMessage ? `<div class="form-status status-message">${htmlescape(state.testMessage)}</div>` : ""}
+      <div id="testSaveStatus" class="form-status status-message" ${state.testSaveMessage ? "" : "hidden"}>${htmlescape(state.testSaveMessage)}</div>
       <div class="test-actions">
         <button class="button secondary" type="button" id="prevTestQuestion" ${paused ? "disabled" : ""}>Previous</button>
         <button class="button secondary" type="button" id="clearTestAnswer" ${paused ? "disabled" : ""}>Clear</button>
@@ -1028,6 +1098,9 @@ function renderSubmitSummary() {
   app.innerHTML = `
     <section class="screen">
       ${topbar("Submit Test", "Confirm final submission", "")}
+      ${state.currentAttempt?.status === "active" ? `<div class="notice">Time remaining: <strong id="testTimer">${formatDuration(remainingAttemptMs(state.currentAttempt))}</strong></div>` : ""}
+      ${state.testMessage ? `<div class="form-status status-message">${htmlescape(state.testMessage)}</div>` : ""}
+      <div id="testSaveStatus" class="form-status status-message" ${state.testSaveMessage ? "" : "hidden"}>${htmlescape(state.testSaveMessage)}</div>
       <div class="status-table">
         <div><span>Answered</span><strong>${counts.answered + counts["answered-review"]}</strong></div>
         <div><span>Not answered</span><strong>${counts["not-answered"]}</strong></div>
@@ -1052,6 +1125,7 @@ function renderTestResult() {
   app.innerHTML = `
     <section class="screen">
       ${topbar("Result", paper.title, "tests")}
+      <div id="testSaveStatus" class="form-status status-message" ${state.testSaveMessage ? "" : "hidden"}>${htmlescape(state.testSaveMessage)}</div>
       <div class="result-score">
         <span>Score</span>
         <strong>${result.score}/${result.totalMarks}</strong>
@@ -1368,9 +1442,15 @@ async function startOrResumeTest() {
     render();
     return;
   }
+  const storedPausedRemainingMs = Number(attempt.remainingMs);
   const remainingMs = attempt.status === "paused"
-    ? Math.max(0, attempt.remainingMs || testDurationMs(paper))
+    ? (Number.isFinite(storedPausedRemainingMs) ? Math.max(0, storedPausedRemainingMs) : testDurationMs(paper))
     : remainingAttemptMs(attempt);
+  if (remainingMs <= 0) {
+    state.currentAttempt = { ...attempt, remainingMs: 0 };
+    await submitAttempt("timeout");
+    return;
+  }
   attempt = {
     ...attempt,
     status: "active",
@@ -1382,6 +1462,7 @@ async function startOrResumeTest() {
   state.testQuestionNumber = attempt.currentQuestion || 1;
   state.testQuestionStartedAt = Date.now();
   state.testPaletteOpen = false;
+  state.testMessage = "";
   state.route = "test-taking";
   render();
   saveTestAttempt(attempt).catch((error) => {
@@ -1440,14 +1521,21 @@ async function pauseActiveTest(source = "manual") {
 async function reconcileClosedTestPause(attempt, paperId) {
   if (!attempt || attempt.status !== "active") return attempt;
   const markerKey = testCloseMarkerKey(paperId);
-  const marker = JSON.parse(localStorage.getItem(markerKey) || "null");
+  let marker = null;
+  try {
+    marker = JSON.parse(localStorage.getItem(markerKey) || "null");
+  } catch (error) {
+    console.warn("Invalid saved test-close marker was discarded", error);
+    localStorage.removeItem(markerKey);
+    return attempt;
+  }
   if (!marker) return attempt;
   localStorage.removeItem(markerKey);
   const pauseCount = Number(attempt.pauseCount || 0);
   if (pauseCount >= 2) {
     state.currentAttempt = {
       ...attempt,
-      remainingMs: Math.max(0, marker.remainingMs || remainingAttemptMs(attempt))
+      remainingMs: Math.max(0, Number.isFinite(Number(marker.remainingMs)) ? Number(marker.remainingMs) : remainingAttemptMs(attempt))
     };
     await submitAttempt("pause-limit");
     state.testMessage = "Pause limit was already used. The test was submitted automatically.";
@@ -1456,7 +1544,7 @@ async function reconcileClosedTestPause(attempt, paperId) {
   const pausedAttempt = {
     ...attempt,
     status: "paused",
-    remainingMs: Math.max(0, marker.remainingMs || remainingAttemptMs(attempt)),
+    remainingMs: Math.max(0, Number.isFinite(Number(marker.remainingMs)) ? Number(marker.remainingMs) : remainingAttemptMs(attempt)),
     pauseCount: pauseCount + 1,
     lastPauseAtMs: marker.atMs || Date.now(),
     lastPauseSource: "closed-app",
@@ -1495,15 +1583,11 @@ function moveTestQuestion(nextNumber) {
 function selectTestAnswer(answer) {
   recordQuestionTime();
   const question = activeQuestion();
-  const attempt = patchActiveAttempt({
+  patchActiveAttempt({
     answers: { [question.number]: answer },
     visited: { [question.number]: true }
   });
   renderTestTaking();
-  saveTestAttempt(attempt).catch((error) => {
-    console.error("Could not save selected answer", error);
-    state.testMessage = "Answer selected, but saving is having trouble. Please keep the page open.";
-  });
 }
 
 function clearTestAnswer() {
@@ -1512,11 +1596,8 @@ function clearTestAnswer() {
   const answers = { ...(state.currentAttempt.answers || {}) };
   delete answers[question.number];
   state.currentAttempt = { ...state.currentAttempt, answers, updatedAtMs: Date.now() };
+  saveTestAttemptQuietly(state.currentAttempt);
   renderTestTaking();
-  saveTestAttempt(state.currentAttempt).catch((error) => {
-    console.error("Could not save cleared answer", error);
-    state.testMessage = "Answer cleared, but saving is having trouble. Please keep the page open.";
-  });
 }
 
 function toggleReview() {
@@ -1526,11 +1607,8 @@ function toggleReview() {
   if (markedForReview[question.number]) delete markedForReview[question.number];
   else markedForReview[question.number] = true;
   state.currentAttempt = { ...state.currentAttempt, markedForReview, updatedAtMs: Date.now() };
+  saveTestAttemptQuietly(state.currentAttempt);
   renderTestTaking();
-  saveTestAttempt(state.currentAttempt).catch((error) => {
-    console.error("Could not save review mark", error);
-    state.testMessage = "Review mark changed, but saving is having trouble. Please keep the page open.";
-  });
 }
 
 app.addEventListener("click", async (event) => {
@@ -1650,6 +1728,10 @@ app.addEventListener("click", async (event) => {
   }
 
   if (event.target.id === "openSubmitSummary") {
+    if (state.currentAttempt?.status === "active" && remainingAttemptMs(state.currentAttempt) <= 0) {
+      await submitAttempt("timeout");
+      return;
+    }
     state.route = "test-submit";
     renderSubmitSummary();
     return;
