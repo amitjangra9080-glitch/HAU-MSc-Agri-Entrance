@@ -22,14 +22,20 @@ export async function GET(request) {
       service: "secure-auth-backend"
     });
   } catch (error) {
+    const { credentialFailureReason } = await import("../_lib/firebase-admin.mjs");
+    const reason = credentialFailureReason(error);
     console.error("Secure auth backend health check failed", {
       requestId: String(request?.headers?.get?.("x-vercel-id") || "").slice(0, 160),
+      reason,
       message: error instanceof Error ? error.message : "Unknown error"
     });
 
-    return jsonResponse({
+    const payload = {
       ok: false,
       error: "service_unavailable"
-    }, 503);
+    };
+    if (process.env.VERCEL_ENV !== "production") payload.reason = reason;
+
+    return jsonResponse(payload, 503);
   }
 }
