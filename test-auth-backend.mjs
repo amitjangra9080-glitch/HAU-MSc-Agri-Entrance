@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   ServerCredentialError,
+  ServerInitializationError,
   credentialFailureReason,
   parseServiceAccountEnv
 } from "./api/_lib/firebase-credentials.mjs";
@@ -74,26 +75,26 @@ test("cryptographically rejects corrupted Base64 key material", () => {
   );
 });
 
-test("classifies OpenSSL and package errors safely", () => {
-  assert.equal(
-    credentialFailureReason(new Error("error:0680009B:asn1 encoding routines::too long")),
-    "invalid_private_key"
+test("preserves explicit initialization stage failures", () => {
+  const error = new ServerInitializationError(
+    "firebase_firestore_initialization_failed",
+    "Firestore initialization failed.",
+    new Error("simulated")
   );
   assert.equal(
-    credentialFailureReason(Object.assign(new Error("Package subpath './app' is not defined"), {
-      code: "ERR_PACKAGE_PATH_NOT_EXPORTED"
-    })),
-    "firebase_admin_module_load_failed"
+    credentialFailureReason(error),
+    "firebase_firestore_initialization_failed"
   );
 });
 
-test("initializes the pinned Firebase Admin SDK and signs a custom token", async () => {
+test("initializes Firebase app, Auth and Firestore without custom-token side effects", async () => {
   const saved = {
     base64: process.env.FIREBASE_SERVICE_ACCOUNT_BASE64,
     json: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY
+    privateKey: process.env.FIREBASE_PRIVATE_KEY,
+    vercelEnv: process.env.VERCEL_ENV
   };
 
   process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 = BASE64;
@@ -101,30 +102,36 @@ test("initializes the pinned Firebase Admin SDK and signs a custom token", async
   delete process.env.FIREBASE_PROJECT_ID;
   delete process.env.FIREBASE_CLIENT_EMAIL;
   delete process.env.FIREBASE_PRIVATE_KEY;
+  process.env.VERCEL_ENV = "preview";
 
   try {
+    const adminSource = await import("node:fs/promises")
+      .then((fs) => fs.readFile(new URL("./api/_lib/firebase-admin.mjs", import.meta.url), "utf8"));
+    assert.ok(!adminSource.includes("createCustomToken("));
+
     const { getFirebaseAdmin } = await import("./api/_lib/firebase-admin.mjs");
     const services = await getFirebaseAdmin();
     assert.ok(services.app);
     assert.ok(services.auth);
     assert.ok(services.db);
-    const token = await services.auth.createCustomToken("phase2-test-user");
-    assert.equal(token.split(".").length, 3);
 
     const { GET } = await import("./api/auth/health.mjs");
-    const response = await GET(new Request("https://example.test/api/auth/health"));
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
-      ok: true,
-      service: "secure-auth-backend"
-    });
+    for (let index = 0; index < 100; index += 1) {
+      const response = await GET(new Request("https://example.test/api/auth/health"));
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        ok: true,
+        service: "secure-auth-backend"
+      });
+    }
   } finally {
     const values = {
       FIREBASE_SERVICE_ACCOUNT_BASE64: saved.base64,
       FIREBASE_SERVICE_ACCOUNT_JSON: saved.json,
       FIREBASE_PROJECT_ID: saved.projectId,
       FIREBASE_CLIENT_EMAIL: saved.clientEmail,
-      FIREBASE_PRIVATE_KEY: saved.privateKey
+      FIREBASE_PRIVATE_KEY: saved.privateKey,
+      VERCEL_ENV: saved.vercelEnv
     };
     for (const [name, value] of Object.entries(values)) {
       if (value === undefined) delete process.env[name];
