@@ -47,7 +47,7 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.paperId == resource.data.paperId
-        && resource.data.locked != true;
+        && resource.data.get('locked', false) != true;
       allow delete: if false;
     }
 

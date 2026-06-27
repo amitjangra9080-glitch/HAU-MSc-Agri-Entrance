@@ -18,6 +18,15 @@ function createStorage() {
 async function run() {
   const data = fs.readFileSync("src/data/papers-data.js", "utf8");
   const app = fs.readFileSync("src/app.js", "utf8");
+  const firestoreRules = fs.readFileSync("firestore.rules", "utf8");
+  assert(
+    firestoreRules.includes("resource.data.get('locked', false) != true"),
+    "Firestore updates must treat legacy attempts without a locked field as unlocked"
+  );
+  assert(
+    !app.includes('state.testMessage = "Test opened, but saving is having trouble. Please keep the page open."'),
+    "test start failures must not create a duplicate save warning"
+  );
   const handlers = {};
   const scrollCalls = [];
   const currentPaletteButton = {
@@ -81,6 +90,7 @@ async function run() {
       await startOrResumeTest();
       assert(state.route === "test-taking", "start should open test window");
       assert(state.currentAttempt.status === "active", "attempt should become active");
+      assert(state.currentAttempt.locked === false, "new attempts should explicitly persist locked false");
       selectTestAnswer("A");
       assert(state.currentAttempt.answers["1"] === "A", "answer should be in current attempt immediately");
       let saved = JSON.parse(localStorage.getItem(demoAttemptKey(state.selectedTestPaperId)));
