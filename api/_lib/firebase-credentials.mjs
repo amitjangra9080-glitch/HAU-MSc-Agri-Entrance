@@ -156,7 +156,10 @@ function normalizeServiceAccount(value) {
     );
   }
 
-  return Object.freeze({ projectId, clientEmail, privateKey });
+  // Firebase Admin normalizes this object in place by adding snake_case aliases
+  // such as project_id, client_email and private_key before requesting a token.
+  // Therefore this credential object must remain extensible.
+  return { projectId, clientEmail, privateKey };
 }
 
 function parseJsonCredential(value) {
