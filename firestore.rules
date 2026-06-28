@@ -83,22 +83,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Admission-number lookups are server-only. The Firebase Admin SDK used by
+    // the secure registration, login and password-reset endpoints bypasses rules.
     match /admissionNumbers/{admissionNumber} {
-      allow get: if true;
-      allow list: if false;
-      allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
-        && !exists(/databases/$(database)/documents/admissionNumbers/$(admissionNumber));
-      allow update, delete: if false;
+      allow read, write: if false;
     }
 
+    // Phone-number uniqueness lookups are also server-only.
     match /phones/{phoneNumber} {
-      allow get: if true;
-      allow list: if false;
-      allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
-        && !exists(/databases/$(database)/documents/phones/$(phoneNumber));
-      allow update, delete: if false;
+      allow read, write: if false;
     }
 
     match /testAttempts/{attemptId} {
