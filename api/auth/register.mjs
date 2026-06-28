@@ -130,32 +130,12 @@ export default async function handler(request, response) {
     });
   } catch (error) {
     const safe = safeErrorPayload(error);
-    const cause = error?.cause || null;
-    const nestedCause = cause?.cause || null;
-    const firebaseCode = cause?.errorInfo?.code
-      || cause?.code
-      || nestedCause?.errorInfo?.code
-      || nestedCause?.code
-      || "";
-    const firebaseMessage = cause?.errorInfo?.message
-      || cause?.message
-      || nestedCause?.errorInfo?.message
-      || nestedCause?.message
-      || "";
-
     console.error("Atomic registration failed", {
       requestId: String(request.headers?.["x-vercel-id"] || "").slice(0, 160),
       reason: String(error?.code || "registration_failed").slice(0, 120),
       errorName: String(error?.name || "Error").slice(0, 80),
-      message: String(error?.message || "Unknown error").slice(0, 240),
-      firebaseCode: String(firebaseCode).slice(0, 160),
-      firebaseMessage: String(firebaseMessage).slice(0, 320)
+      message: String(error?.message || "Unknown error").slice(0, 240)
     });
-
-    if (process.env.VERCEL_ENV !== "production" && firebaseCode) {
-      safe.payload.diagnostic = String(firebaseCode).slice(0, 160);
-    }
-
     return response.status(safe.status).json(safe.payload);
   }
 }

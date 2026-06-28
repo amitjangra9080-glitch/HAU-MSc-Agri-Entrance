@@ -17,15 +17,9 @@
   }
 
   function responseMessage(payload, fallback) {
-    const baseMessage = typeof payload?.message === "string" && payload.message.trim()
+    return typeof payload?.message === "string" && payload.message.trim()
       ? payload.message.trim()
       : fallback;
-    const diagnostic = typeof payload?.diagnostic === "string" && payload.diagnostic.trim()
-      ? payload.diagnostic.trim()
-      : typeof payload?.error === "string" && payload.error.trim()
-        ? payload.error.trim()
-        : "";
-    return diagnostic ? `${baseMessage} [${diagnostic}]` : baseMessage;
   }
 
   async function readJsonResponse(response) {
