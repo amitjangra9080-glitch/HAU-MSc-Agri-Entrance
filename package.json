@@ -6,10 +6,16 @@
   "scripts": {
     "start": "npx serve .",
     "dev": "npx serve .",
+    "test": "node test-exam-engine.js && node --test test-registration-validation.mjs test-firebase-admin-foundation.mjs",
+    "test:registration": "node --test test-registration-validation.mjs",
+    "test:admin-foundation": "node --test test-firebase-admin-foundation.mjs",
     "deploy:vercel": "vercel --prod",
     "deploy:firebase": "firebase deploy",
     "deploy:firebase:rules": "firebase deploy --only firestore:rules",
     "deploy:firebase:hosting": "firebase deploy --only hosting"
+  },
+  "dependencies": {
+    "firebase-admin": "14.1.0"
   },
   "devDependencies": {
     "serve": "^14.2.5"
