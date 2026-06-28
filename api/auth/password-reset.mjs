@@ -1,3 +1,12 @@
+import {
+  AUTH_RATE_LIMIT_POLICIES,
+  AuthRateLimitError,
+  AuthRateLimitServiceError,
+  applyRetryAfterHeader,
+  consumeAuthRateLimits,
+  extractClientIp,
+  isAuthRateLimitConfigured
+} from "../_lib/auth-rate-limit.mjs";
 import { getFirebaseAdmin } from "../_lib/firebase-admin.mjs";
 import { firebaseWebApiKey } from "../_lib/identity-toolkit.mjs";
 import { validatePasswordResetInput } from "../_lib/login-validation.mjs";
@@ -24,6 +33,30 @@ function readBody(request) {
   return {};
 }
 
+function safeResetError(error) {
+  if (error instanceof AuthRateLimitError) {
+    return {
+      status: 429,
+      error: "rate_limited",
+      message: "Too many password-reset requests. Try again later."
+    };
+  }
+
+  if (error instanceof AuthRateLimitServiceError || error instanceof SecureLoginError) {
+    return {
+      status: 503,
+      error: "service_unavailable",
+      message: "Password reset is temporarily unavailable."
+    };
+  }
+
+  return {
+    status: 503,
+    error: "service_unavailable",
+    message: "Password reset is temporarily unavailable."
+  };
+}
+
 export default async function handler(request, response) {
   setSecurityHeaders(response);
 
@@ -32,7 +65,8 @@ export default async function handler(request, response) {
       ok: true,
       service: "secure-password-reset",
       stage: "backend-ready",
-      configured: Boolean(firebaseWebApiKey())
+      configured: Boolean(firebaseWebApiKey()),
+      rateLimitConfigured: isAuthRateLimitConfigured()
     });
   }
 
@@ -61,6 +95,20 @@ export default async function handler(request, response) {
 
   try {
     const services = await getFirebaseAdmin();
+    await consumeAuthRateLimits({
+      db: services.db,
+      entries: [
+        {
+          policy: AUTH_RATE_LIMIT_POLICIES.passwordResetIp,
+          subject: extractClientIp(request)
+        },
+        {
+          policy: AUTH_RATE_LIMIT_POLICIES.passwordResetAdmission,
+          subject: validation.data.admissionNumber
+        }
+      ]
+    });
+
     await sendAdmissionPasswordReset(validation.data, services);
     return response.status(200).json({
       ok: true,
@@ -68,24 +116,18 @@ export default async function handler(request, response) {
       message: ACCEPTED_MESSAGE
     });
   } catch (error) {
-    const safe = error instanceof SecureLoginError
-      ? error
-      : new SecureLoginError(
-        "service_unavailable",
-        "Password reset is temporarily unavailable.",
-        503,
-        error
-      );
+    applyRetryAfterHeader(response, error);
+    const safe = safeResetError(error);
 
     console.error("Secure password reset failed", {
       requestId: String(request.headers?.["x-vercel-id"] || "").slice(0, 160),
-      reason: String(safe.code || "password_reset_failed").slice(0, 120)
+      reason: String(error?.code || "password_reset_failed").slice(0, 120)
     });
 
     return response.status(safe.status).json({
       ok: false,
-      error: safe.code,
-      message: "Password reset is temporarily unavailable."
+      error: safe.error,
+      message: safe.message
     });
   }
 }

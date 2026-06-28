@@ -1,3 +1,13 @@
+import {
+  AUTH_RATE_LIMIT_POLICIES,
+  AuthRateLimitError,
+  AuthRateLimitServiceError,
+  applyRetryAfterHeader,
+  clearAuthRateLimit,
+  consumeAuthRateLimits,
+  extractClientIp,
+  isAuthRateLimitConfigured
+} from "../_lib/auth-rate-limit.mjs";
 import { getFirebaseAdmin } from "../_lib/firebase-admin.mjs";
 import { firebaseWebApiKey } from "../_lib/identity-toolkit.mjs";
 import { validateLoginInput } from "../_lib/login-validation.mjs";
@@ -23,6 +33,38 @@ function readBody(request) {
   return {};
 }
 
+function safeLoginError(error) {
+  if (error instanceof AuthRateLimitError) {
+    return {
+      status: 429,
+      error: "rate_limited",
+      message: "Too many sign-in attempts. Try again later."
+    };
+  }
+
+  if (error instanceof AuthRateLimitServiceError) {
+    return {
+      status: 503,
+      error: "service_unavailable",
+      message: "Authentication service is temporarily unavailable."
+    };
+  }
+
+  if (error instanceof SecureLoginError) {
+    return {
+      status: error.status,
+      error: error.code,
+      message: error.message
+    };
+  }
+
+  return {
+    status: 503,
+    error: "service_unavailable",
+    message: "Authentication service is temporarily unavailable."
+  };
+}
+
 export default async function handler(request, response) {
   setSecurityHeaders(response);
 
@@ -31,7 +73,8 @@ export default async function handler(request, response) {
       ok: true,
       service: "secure-login",
       stage: "backend-ready",
-      configured: Boolean(firebaseWebApiKey())
+      configured: Boolean(firebaseWebApiKey()),
+      rateLimitConfigured: isAuthRateLimitConfigured()
     });
   }
 
@@ -60,7 +103,33 @@ export default async function handler(request, response) {
 
   try {
     const services = await getFirebaseAdmin();
+    await consumeAuthRateLimits({
+      db: services.db,
+      entries: [
+        {
+          policy: AUTH_RATE_LIMIT_POLICIES.loginIp,
+          subject: extractClientIp(request)
+        },
+        {
+          policy: AUTH_RATE_LIMIT_POLICIES.loginAdmission,
+          subject: validation.data.admissionNumber
+        }
+      ]
+    });
+
     const result = await authenticateAdmissionLogin(validation.data, services);
+
+    await clearAuthRateLimit({
+      db: services.db,
+      policy: AUTH_RATE_LIMIT_POLICIES.loginAdmission,
+      subject: validation.data.admissionNumber
+    }).catch((error) => {
+      console.warn("Successful login rate-limit reset failed", {
+        requestId: String(request.headers?.["x-vercel-id"] || "").slice(0, 160),
+        reason: String(error?.code || "rate_limit_clear_failed").slice(0, 120)
+      });
+    });
+
     return response.status(200).json({
       ok: true,
       stage: "authenticated",
@@ -71,23 +140,17 @@ export default async function handler(request, response) {
       }
     });
   } catch (error) {
-    const safe = error instanceof SecureLoginError
-      ? error
-      : new SecureLoginError(
-        "service_unavailable",
-        "Authentication service is temporarily unavailable.",
-        503,
-        error
-      );
+    applyRetryAfterHeader(response, error);
+    const safe = safeLoginError(error);
 
     console.error("Secure login failed", {
       requestId: String(request.headers?.["x-vercel-id"] || "").slice(0, 160),
-      reason: String(safe.code || "login_failed").slice(0, 120)
+      reason: String(safe.error || "login_failed").slice(0, 120)
     });
 
     return response.status(safe.status).json({
       ok: false,
-      error: safe.code,
+      error: safe.error,
       message: safe.message
     });
   }
