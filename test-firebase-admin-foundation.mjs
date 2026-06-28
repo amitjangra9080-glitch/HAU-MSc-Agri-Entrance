@@ -34,6 +34,19 @@ test("parses a valid Base64 service account", () => {
   assert.match(parsed.privateKey, /BEGIN PRIVATE KEY/);
 });
 
+test("returns an extensible credential object for Firebase Admin", () => {
+  const encoded = Buffer.from(JSON.stringify(serviceAccount()), "utf8").toString("base64");
+  const parsed = parseServiceAccountEnv({
+    FIREBASE_SERVICE_ACCOUNT_BASE64: encoded
+  });
+
+  assert.equal(Object.isExtensible(parsed), true);
+  parsed.project_id = parsed.projectId;
+  parsed.client_email = parsed.clientEmail;
+  parsed.private_key = parsed.privateKey;
+  assert.equal(parsed.project_id, "hau-msc-agri-entrance");
+});
+
 test("supports the split credential migration format", () => {
   const parsed = parseServiceAccountEnv({
     FIREBASE_PROJECT_ID: "hau-msc-agri-entrance",
