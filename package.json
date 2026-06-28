@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npx serve .",
     "dev": "npx serve .",
-    "test": "node test-exam-engine.js && node --test test-registration-validation.mjs test-firebase-admin-foundation.mjs test-registration-service.mjs test-atomic-registration-client.mjs test-secure-login-validation.mjs test-secure-login-service.mjs test-secure-auth-client.mjs test-firestore-lookup-security.mjs",
+    "test": "node test-exam-engine.js && node --test test-registration-validation.mjs test-firebase-admin-foundation.mjs test-registration-service.mjs test-atomic-registration-client.mjs test-secure-login-validation.mjs test-secure-login-service.mjs test-secure-auth-client.mjs test-firestore-lookup-security.mjs test-auth-rate-limit.mjs test-auth-rate-limit-wiring.mjs",
     "test:registration": "node --test test-registration-validation.mjs",
     "test:admin-foundation": "node --test test-firebase-admin-foundation.mjs",
     "deploy:vercel": "vercel --prod",
@@ -16,7 +16,8 @@
     "test:registration-service": "node --test test-registration-service.mjs",
     "test:registration-client": "node --test test-atomic-registration-client.mjs",
     "test:secure-login": "node --test test-secure-login-validation.mjs test-secure-login-service.mjs test-secure-auth-client.mjs",
-    "test:firestore-security": "node --test test-firestore-lookup-security.mjs"
+    "test:firestore-security": "node --test test-firestore-lookup-security.mjs",
+    "test:auth-rate-limit": "node --test test-auth-rate-limit.mjs test-auth-rate-limit-wiring.mjs"
   },
   "dependencies": {
     "firebase-admin": "13.9.0"
