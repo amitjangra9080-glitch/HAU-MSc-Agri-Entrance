@@ -1,3 +1,12 @@
+import {
+  AUTH_RATE_LIMIT_POLICIES,
+  AuthRateLimitError,
+  AuthRateLimitServiceError,
+  applyRetryAfterHeader,
+  consumeAuthRateLimits,
+  extractClientIp,
+  isAuthRateLimitConfigured
+} from "../_lib/auth-rate-limit.mjs";
 import { getFirebaseAdmin } from "../_lib/firebase-admin.mjs";
 import {
   RegistrationServiceError,
@@ -31,6 +40,28 @@ function registrationWriteEnabled() {
 }
 
 function safeErrorPayload(error) {
+  if (error instanceof AuthRateLimitError) {
+    return {
+      status: 429,
+      payload: {
+        ok: false,
+        error: "rate_limited",
+        message: "Too many account-creation attempts. Try again later."
+      }
+    };
+  }
+
+  if (error instanceof AuthRateLimitServiceError) {
+    return {
+      status: 503,
+      payload: {
+        ok: false,
+        error: "service_unavailable",
+        message: "Registration service is temporarily unavailable."
+      }
+    };
+  }
+
   if (error instanceof RegistrationServiceError) {
     return {
       status: error.status,
@@ -60,7 +91,8 @@ export default async function handler(request, response) {
       ok: true,
       service: "atomic-registration",
       stage: "atomic-ready",
-      writeEnabled: registrationWriteEnabled()
+      writeEnabled: registrationWriteEnabled(),
+      rateLimitConfigured: isAuthRateLimitConfigured()
     });
   }
 
@@ -122,6 +154,20 @@ export default async function handler(request, response) {
 
   try {
     const services = await getFirebaseAdmin();
+    await consumeAuthRateLimits({
+      db: services.db,
+      entries: [
+        {
+          policy: AUTH_RATE_LIMIT_POLICIES.registrationIp,
+          subject: extractClientIp(request)
+        },
+        {
+          policy: AUTH_RATE_LIMIT_POLICIES.registrationAdmission,
+          subject: result.data.admissionNumber
+        }
+      ]
+    });
+
     const user = await createAtomicRegistration(result.data, services);
     return response.status(201).json({
       ok: true,
@@ -129,6 +175,7 @@ export default async function handler(request, response) {
       user
     });
   } catch (error) {
+    applyRetryAfterHeader(response, error);
     const safe = safeErrorPayload(error);
     console.error("Atomic registration failed", {
       requestId: String(request.headers?.["x-vercel-id"] || "").slice(0, 160),
