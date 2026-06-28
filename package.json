@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npx serve .",
     "dev": "npx serve .",
-    "test": "node test-exam-engine.js && node --test test-registration-validation.mjs test-firebase-admin-foundation.mjs test-registration-service.mjs test-atomic-registration-client.mjs test-secure-login-validation.mjs test-secure-login-service.mjs",
+    "test": "node test-exam-engine.js && node --test test-registration-validation.mjs test-firebase-admin-foundation.mjs test-registration-service.mjs test-atomic-registration-client.mjs test-secure-login-validation.mjs test-secure-login-service.mjs test-secure-auth-client.mjs",
     "test:registration": "node --test test-registration-validation.mjs",
     "test:admin-foundation": "node --test test-firebase-admin-foundation.mjs",
     "deploy:vercel": "vercel --prod",
@@ -15,7 +15,8 @@
     "deploy:firebase:hosting": "firebase deploy --only hosting",
     "test:registration-service": "node --test test-registration-service.mjs",
     "test:registration-client": "node --test test-atomic-registration-client.mjs",
-    "test:secure-login": "node --test test-secure-login-validation.mjs test-secure-login-service.mjs"
+    "test:secure-login": "node --test test-secure-login-validation.mjs test-secure-login-service.mjs test-secure-auth-client.mjs",
+    "test:secure-auth-client": "node --test test-secure-auth-client.mjs"
   },
   "dependencies": {
     "firebase-admin": "13.9.0"
