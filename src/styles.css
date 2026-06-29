@@ -1970,3 +1970,126 @@ summary:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Welcome branding: animated plant and final landing-page description */
+.welcome .brand-mark {
+  overflow: visible;
+  color: transparent;
+  font-size: 0;
+  background-size: 180% 180%;
+  animation: welcomeBadgeBreath 5.5s ease-in-out infinite;
+}
+
+.welcome .brand-mark::after {
+  display: none;
+}
+
+.welcome-plant {
+  width: 54px;
+  height: 54px;
+  overflow: visible;
+  filter: drop-shadow(0 4px 5px rgba(20, 67, 35, 0.2));
+}
+
+.welcome-plant .plant-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: welcomePlantSway 3.8s ease-in-out infinite;
+}
+
+.welcome-plant .plant-stem {
+  fill: none;
+  stroke: #fffdf4;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.welcome-plant .plant-leaf {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+  transform-box: fill-box;
+}
+
+.welcome-plant .plant-leaf-left {
+  fill: #cdecae;
+  transform-origin: 100% 65%;
+  animation: welcomeLeafLeft 2.9s ease-in-out infinite;
+}
+
+.welcome-plant .plant-leaf-right {
+  fill: #f5f2b8;
+  transform-origin: 0% 72%;
+  animation: welcomeLeafRight 3.2s ease-in-out infinite;
+}
+
+.welcome-plant .plant-leaf-top {
+  fill: #dff5d9;
+  transform-origin: 50% 100%;
+  animation: welcomeLeafTop 3.4s ease-in-out infinite;
+}
+
+.welcome-plant .plant-soil {
+  fill: #6f4b35;
+}
+
+.welcome-plant .plant-pot {
+  fill: #f4b77f;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+
+.welcome-plant .plant-spark {
+  fill: #fff8c9;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.welcome-plant .plant-spark-one {
+  animation: welcomeSparkFloat 3.1s ease-in-out infinite;
+}
+
+.welcome-plant .plant-spark-two {
+  animation: welcomeSparkFloat 3.1s ease-in-out 1.15s infinite;
+}
+
+@keyframes welcomePlantSway {
+  0%, 100% { transform: rotate(-2deg) translateY(0); }
+  50% { transform: rotate(2.5deg) translateY(-1px); }
+}
+
+@keyframes welcomeLeafLeft {
+  0%, 100% { transform: rotate(-2deg) scale(1); }
+  50% { transform: rotate(5deg) scale(1.04); }
+}
+
+@keyframes welcomeLeafRight {
+  0%, 100% { transform: rotate(2deg) scale(1); }
+  50% { transform: rotate(-5deg) scale(1.035); }
+}
+
+@keyframes welcomeLeafTop {
+  0%, 100% { transform: rotate(-1deg) scale(0.98); }
+  50% { transform: rotate(3deg) scale(1.04); }
+}
+
+@keyframes welcomeSparkFloat {
+  0%, 100% { opacity: 0.35; transform: translateY(2px) scale(0.8); }
+  50% { opacity: 1; transform: translateY(-4px) scale(1.1); }
+}
+
+@keyframes welcomeBadgeBreath {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome .brand-mark,
+  .welcome-plant .plant-body,
+  .welcome-plant .plant-leaf,
+  .welcome-plant .plant-spark {
+    animation: none !important;
+  }
+}
+
