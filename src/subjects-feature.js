@@ -71,8 +71,9 @@
 
   icons.subjects = `
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-      <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5v-16Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="m12 3 9 5-9 5-9-5 9-5Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m3 12 9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m3 16 9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>`;
 
   bottomNav = function bottomNavWithSubjects(activeRoute) {
@@ -100,6 +101,7 @@
 
   const renderExistingRoute = render;
   render = function renderWithSubjects() {
+    document.documentElement.classList.remove("question-palette-open");
     applyCanonicalSubjects();
     if (state.route === "subjects") {
       renderSubjects();
@@ -124,6 +126,109 @@
     });
   });
 
+  let pendingPaperQuestion = 1;
+
+  function visiblePaperQuestionNumber() {
+    const appRect = app.getBoundingClientRect();
+    const x = Math.max(16, Math.min(window.innerWidth - 16, appRect.left + (appRect.width / 2)));
+    const anchorPoints = [96, 132, 176, 220].filter((y) => y < window.innerHeight);
+
+    for (const y of anchorPoints) {
+      const card = document.elementFromPoint(x, y)?.closest?.('article.question-card[id^="question-"]');
+      const number = Number(card?.id.match(/^question-(\d+)$/)?.[1]);
+      if (number) return number;
+    }
+
+    const cards = app.querySelectorAll('article.question-card[id^="question-"]');
+    for (const card of cards) {
+      const rect = card.getBoundingClientRect();
+      if (rect.bottom > 76 && rect.top < window.innerHeight) {
+        return Number(card.id.match(/^question-(\d+)$/)?.[1]) || 1;
+      }
+    }
+
+    return 1;
+  }
+
+  function markPaletteQuestion(buttonSelector, datasetKey, questionNumber) {
+    app.querySelectorAll(buttonSelector).forEach((button) => {
+      button.classList.toggle(
+        "current",
+        Number(button.dataset[datasetKey]) === Number(questionNumber)
+      );
+    });
+  }
+
+  function centerPaletteQuestion(gridSelector) {
+    requestAnimationFrame(() => {
+      const grid = app.querySelector(gridSelector);
+      const current = grid?.querySelector("button.current");
+      if (!grid || !current) return;
+
+      const targetTop = current.offsetTop - (grid.clientHeight / 2) + (current.offsetHeight / 2);
+      grid.scrollTop = Math.max(0, targetTop);
+    });
+  }
+
+  function syncPaletteLayerState() {
+    document.documentElement.classList.toggle(
+      "question-palette-open",
+      Boolean(app.querySelector(".question-nav-layer.open"))
+    );
+  }
+
+  app.addEventListener("click", (event) => {
+    if (event.target.closest?.("#questionNavOpen")) {
+      pendingPaperQuestion = visiblePaperQuestionNumber();
+      return;
+    }
+
+    if (event.target.closest?.("#testPaletteOpen")) {
+      window.setTimeout(() => {
+        markPaletteQuestion(
+          ".test-number-grid [data-test-jump]",
+          "testJump",
+          state.testQuestionNumber
+        );
+        syncPaletteLayerState();
+        centerPaletteQuestion(".test-number-grid");
+      }, 0);
+      return;
+    }
+
+    if (event.target.closest?.("#questionNavOpen")) {
+      window.setTimeout(() => {
+        markPaletteQuestion(
+          ".question-number-grid [data-jump-question]",
+          "jumpQuestion",
+          pendingPaperQuestion
+        );
+        syncPaletteLayerState();
+        centerPaletteQuestion(".question-number-grid");
+      }, 0);
+      return;
+    }
+
+    if (event.target.closest?.(
+      "#questionNavClose, #questionNavCloseButton, #testPaletteClose, #testPaletteCloseButton"
+    )) {
+      window.setTimeout(syncPaletteLayerState, 0);
+    }
+  }, true);
+
+  app.addEventListener("click", (event) => {
+    if (!event.target.closest?.("#questionNavOpen")) return;
+    window.setTimeout(() => {
+      markPaletteQuestion(
+        ".question-number-grid [data-jump-question]",
+        "jumpQuestion",
+        pendingPaperQuestion
+      );
+      syncPaletteLayerState();
+      centerPaletteQuestion(".question-number-grid");
+    }, 0);
+  });
+
   if (!document.querySelector("#hauSubjectsFeatureStyles")) {
     const style = document.createElement("style");
     style.id = "hauSubjectsFeatureStyles";
@@ -134,6 +239,26 @@
 
       .subject-card {
         text-align: left;
+      }
+
+      .nav-item[data-route="subjects"] .nav-icon::before {
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 9 5-9 5-9-5 9-5Z'/%3E%3Cpath d='m3 12 9 5 9-5'/%3E%3Cpath d='m3 16 9 5 9-5'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 9 5-9 5-9-5 9-5Z'/%3E%3Cpath d='m3 12 9 5 9-5'/%3E%3Cpath d='m3 16 9 5 9-5'/%3E%3C/svg%3E");
+      }
+
+      .question-nav-layer {
+        z-index: 40;
+      }
+
+      html.question-palette-open .sticky-search {
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .question-number-grid button.current {
+        border-width: 3px;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(47, 125, 74, 0.13), 3px 4px 9px rgba(82, 112, 84, 0.1);
       }
     `;
     document.head.appendChild(style);

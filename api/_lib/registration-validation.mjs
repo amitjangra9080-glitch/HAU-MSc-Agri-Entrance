@@ -21,6 +21,16 @@ export function normalizePhone(value) {
   return text(value).replace(/^\+91/, "").replace(/\D/g, "");
 }
 
+function admissionYear(admissionNumber) {
+  const match = admissionNumber.match(/^(?:B|K)?(\d{4})A/);
+  return match ? Number(match[1]) : null;
+}
+
+function hasFutureAdmissionYear(admissionNumber, currentYear = new Date().getFullYear()) {
+  const year = admissionYear(admissionNumber);
+  return year !== null && year > currentYear;
+}
+
 function campusPrefix(campus) {
   if (campus === "Bawal") return "B";
   if (campus === "Kaul") return "K";
@@ -33,6 +43,8 @@ function programmeCode(programme) {
 
 function validateAdmission(admissionNumber, campus, programme) {
   if (!ADMISSION_PATTERN.test(admissionNumber)) return "Invalid admission number.";
+
+  if (hasFutureAdmissionYear(admissionNumber)) return "Invalid admission number.";
 
   const expectedPrefix = campusPrefix(campus);
   if (expectedPrefix && !admissionNumber.startsWith(expectedPrefix)) {
@@ -83,6 +95,8 @@ export function validateRegistrationInput(input = {}) {
     const admissionError = validateAdmission(data.admissionNumber, data.campus, data.programme);
     if (admissionError) errors.admissionNumber = admissionError;
   } else if (!data.admissionNumber || !ADMISSION_PATTERN.test(data.admissionNumber)) {
+    errors.admissionNumber = "Invalid admission number.";
+  } else if (hasFutureAdmissionYear(data.admissionNumber)) {
     errors.admissionNumber = "Invalid admission number.";
   }
 
