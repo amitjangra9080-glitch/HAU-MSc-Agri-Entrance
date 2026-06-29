@@ -16,7 +16,15 @@
         "C": "Drone sprayer",
         "D": "Hydraulic trailer"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Agricultural Engineering / Post-harvest Technology",
+      "topic": "Women-friendly post-harvest equipment",
+      "explanation": "A grain cleaner-cum-grader performs cleaning and size grading of grain with comparatively low drudgery and is suitable for small-scale post-harvest operations, including use by women farmers.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 2,
@@ -27,7 +35,15 @@
         "C": "By causing extreme weather patterns and water scarcity",
         "D": "By stabilizing seasonal temperature ranges"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Agrometeorology / Climate Change",
+      "topic": "Climate change and irrigation demand",
+      "explanation": "Climate change can make rainfall more erratic and increase the frequency of drought and heat. These conditions increase water scarcity and dependence on irrigation for reliable crop production.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 3,
@@ -38,7 +54,16 @@
         "C": "Fibre",
         "D": "Fodder"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Agronomy / Crop Classification",
+      "topic": "Economic classification of groundnut",
+      "explanation": "Groundnut is classified as an edible oilseed crop because its kernels contain a high proportion of oil and are cultivated mainly for oil extraction and food use.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 36.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 4,
@@ -49,7 +74,16 @@
         "C": "Manganese",
         "D": "Calcium"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Soil Fertility / Plant Nutrition",
+      "topic": "Essential micronutrients",
+      "explanation": "Manganese is required by plants in small quantities and is classified as an essential micronutrient. Phosphorus, potassium and calcium are macronutrients.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 193.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 5,
@@ -60,7 +94,15 @@
         "C": "Air pressure",
         "D": "Rock type in soil"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Agronomy / Water-use Efficiency",
+      "topic": "Canopy influence on water use efficiency",
+      "explanation": "Leaf area index determines the size of the photosynthetic and transpiring canopy. An optimum leaf area improves interception of radiation and biomass production relative to water used.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 6,
@@ -71,7 +113,16 @@
         "C": "Capillary water",
         "D": "Chemical water"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Soil Physics / Soil Water",
+      "topic": "Plant-available soil water",
+      "explanation": "Capillary water is retained in soil micropores against gravity as a continuous film around soil particles and is available for plant growth. Gravitational water drains freely, while hygroscopic water is held too tightly for plant use.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 123.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 7,
@@ -82,7 +133,15 @@
         "C": "120-140 days",
         "D": "150-160 days"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Agronomy / Pearl Millet",
+      "topic": "Crop duration",
+      "explanation": "Pearl millet is a short-duration warm-season cereal. Early cultivars commonly mature in about 60-75 days, which makes the crop suitable for dryland and contingency planting.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 8,
@@ -93,7 +152,16 @@
         "C": "Improves soil nitrogen naturally",
         "D": "Can be harvested multiple times a year"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Agronomy / Fodder Crops",
+      "topic": "Characteristics of Napier grass",
+      "explanation": "Napier grass is a high-yielding perennial fodder grass that can be cut repeatedly and tolerates moisture stress after establishment. Being a non-legume, it does not naturally enrich soil nitrogen through symbiotic fixation.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 36.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 9,
@@ -104,7 +172,15 @@
         "C": "Pod borer",
         "D": "Stem borer"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Entomology / Pulse Pests",
+      "topic": "Major insect pest of cowpea",
+      "explanation": "Pod borers damage cowpea by feeding on flowers, developing pods and seeds, directly reducing marketable grain yield.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 10,
@@ -115,7 +191,16 @@
         "C": "Trans fats",
         "D": "Cholesterol"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Agronomy / Oilseed Quality",
+      "topic": "Fatty-acid composition of sunflower oil",
+      "explanation": "Sunflower oil is valued for its high proportion of polyunsaturated fatty acids. The book specifically notes that PUFA content is highest in sunflower.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 16.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 11,
@@ -126,7 +211,15 @@
         "C": "Rhizobium ciceri",
         "D": "Rhizobium phaseoli"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Agronomy / Soil Microbiology",
+      "topic": "Rhizobium association in chickpea",
+      "explanation": "Chickpea forms effective root nodules with its specific Rhizobium group. Rhizobium ciceri establishes symbiosis with chickpea roots and fixes atmospheric nitrogen for use by the crop.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 12,
@@ -137,7 +230,16 @@
         "C": "Flue curing",
         "D": "All of these"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Agronomy / Tobacco",
+      "topic": "Methods of curing tobacco",
+      "explanation": "Curing is an essential post-harvest operation in tobacco. Depending on the tobacco type and the desired leaf quality, curing is carried out by sun curing, fire curing, flue curing or air curing.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 7.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 13,
@@ -148,7 +250,16 @@
         "C": "Stem",
         "D": "Seed"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Weed Science / Allelopathy",
+      "topic": "Distribution of allelochemicals in Parthenium",
+      "explanation": "Parthenium releases allelochemicals from its plant parts, and the leaves contain a high concentration of these compounds. Leaf residues and leachates therefore exert strong inhibitory effects on neighbouring plants.",
+      "reference": "Fundamentals of Agriculture, Vol. 1 - Arun Katyayan, Book page 24.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 14,
@@ -159,7 +270,15 @@
         "C": "Penetrants",
         "D": "Stickers"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Weed Science / Pesticide Application",
+      "topic": "Adjuvants used with herbicides",
+      "explanation": "Stickers increase the adhesion of spray droplets to the plant surface. They reduce washing of the applied herbicide by rainfall and improve retention of the spray deposit on foliage.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 15,
@@ -170,7 +289,15 @@
         "C": "Xylitol and sorbitol",
         "D": "Sucrose and maltose"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Medicinal and Aromatic Crops",
+      "topic": "Sweet compounds in Stevia",
+      "explanation": "The sweetness of Stevia leaves is due mainly to steviol glycosides, especially stevioside and rebaudioside compounds. These glycosides are intensely sweet and are used as non-caloric sweeteners.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 16,
@@ -181,7 +308,15 @@
         "C": "Root aphids",
         "D": "Fruit fly"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Entomology / Plantation Crop Pests",
+      "topic": "Major pest of coconut",
+      "explanation": "The rhinoceros beetle is an important pest of coconut. Adults bore into the crown and unopened fronds, producing characteristic cuts in the emerging leaves and weakening the palm.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 17,
@@ -192,7 +327,15 @@
         "C": "Waterlogging",
         "D": "Acid soil"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Horticulture / Fruit Crops",
+      "topic": "Climatic tolerance of aonla",
+      "explanation": "Aonla is a hardy fruit crop adapted to dry and semi-arid conditions. Its deep root system and hardy growth enable it to withstand prolonged drought better than waterlogging.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 18,
@@ -203,7 +346,16 @@
         "C": "Higher productivity than monocropping",
         "D": "Unprofitable intercropping"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Agronomy / Cropping Systems",
+      "topic": "Interpretation of land equivalent ratio",
+      "explanation": "Land equivalent ratio compares the area required under sole crops with the area used in intercropping to produce the same yield. An LER greater than one indicates a yield advantage and more efficient land use under intercropping.",
+      "reference": "Fundamentals of Agriculture, Vol. 1 - Arun Katyayan, Book page 137.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 19,
@@ -214,7 +366,16 @@
         "C": "Pearl millet",
         "D": "Maize"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Dryland Agriculture / Contingency Cropping",
+      "topic": "Crop choice under delayed monsoon",
+      "explanation": "Pearl millet is a short-duration, drought-tolerant cereal suited to low and uncertain rainfall. It can be sown after delayed onset of monsoon and is therefore suitable as a contingency crop in dryland areas.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 39.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 20,
@@ -225,7 +386,15 @@
         "C": "Fertilizer application",
         "D": "Enhancing crop growth"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Entomology / Integrated Pest Management",
+      "topic": "Use of pheromone traps",
+      "explanation": "Pheromone traps attract insects by using species-specific chemical signals. They are mainly used to detect pest occurrence, monitor adult population and determine the appropriate time for control measures.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 21,
@@ -236,7 +405,15 @@
         "C": "Frequent tilling",
         "D": "Burning crop residues"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Entomology / Ecological Pest Management",
+      "topic": "Conservation of natural enemies",
+      "explanation": "Bird perches encourage insectivorous birds in crop fields. Their effect is strengthened by habitat diversification and flowering plants, which provide shelter, nectar and pollen for predators and parasitoids.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 22,
@@ -247,7 +424,15 @@
         "C": "Rectal gland",
         "D": "Phasmids"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Nematology / Citrus Nematode",
+      "topic": "Gelatinous matrix of Tylenchulus semipenetrans",
+      "explanation": "The mature female citrus nematode produces a gelatinous matrix around the posterior part of its body. The matrix is secreted through the excretory pore and contains the eggs.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 23,
@@ -258,7 +443,15 @@
         "C": "Mermithids and Sphaerulariids",
         "D": "Aphelenchids and Sphaerulariids"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Nematology / Biological Control",
+      "topic": "Entomopathogenic nematodes",
+      "explanation": "Species of Steinernema and Heterorhabditis are highly pathogenic to insects. They enter the insect host, release symbiotic bacteria and cause rapid death of the insect.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 24,
@@ -269,7 +462,15 @@
         "C": "Paratylenchus",
         "D": "Tylenchorhynchus"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Nematology / Plant-Parasitic Nematodes",
+      "topic": "Lesion or meadow nematode",
+      "explanation": "Pratylenchus species are commonly called lesion or meadow nematodes. They are migratory endoparasites that enter roots, feed within cortical tissues and produce elongated necrotic lesions.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 25,
@@ -280,7 +481,16 @@
         "C": "Indeterminate",
         "D": "Hybrid"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Vegetable Science / Tomato",
+      "topic": "Growth habit and staking in tomato",
+      "explanation": "Indeterminate tomato plants continue growth of the main stem and produce successive flower clusters. Training, pruning and staking are followed in indeterminate types to support the continuously growing vines.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 104.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 26,
@@ -291,7 +501,15 @@
         "C": "CN glycosides",
         "D": "Anti-vitamin E factor"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Vegetable Science / Brinjal",
+      "topic": "Cause of bitterness in brinjal",
+      "explanation": "Bitterness in brinjal is associated with steroidal glycoalkaloids, particularly solasodine and related compounds. Higher concentration of these alkaloids gives the fruit an undesirable bitter taste.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 27,
@@ -302,7 +520,15 @@
         "C": "Bacterial disease",
         "D": "None of the above"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Plant Pathology / Vegetable Diseases",
+      "topic": "Black rot of cauliflower",
+      "explanation": "Black rot of cauliflower and other crucifers is a bacterial disease. Infection commonly begins from leaf margins and produces yellow, V-shaped lesions followed by blackening of the veins.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 28,
@@ -313,7 +539,15 @@
         "C": "Uredospores",
         "D": "Basidiospores"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Plant Pathology / Rust Fungi",
+      "topic": "Infective stages of Puccinia graminis",
+      "explanation": "Teliospores of Puccinia graminis are thick-walled resting spores. They germinate to produce a basidium and basidiospores, but the teliospores themselves do not directly infect the host plant.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 29,
@@ -324,7 +558,15 @@
         "C": "Helium",
         "D": "Nitrogen"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Post-harvest Technology",
+      "topic": "Controlled-atmosphere storage",
+      "explanation": "Controlled-atmosphere storage uses reduced oxygen and an increased concentration of carbon dioxide around the produce. This slows respiration, delays ripening and suppresses many storage organisms.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 30,
@@ -335,7 +577,15 @@
         "C": "Regularly re-inoculating them on their hosts",
         "D": "Lyophilization"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Plant Pathology / Mycology",
+      "topic": "Maintenance of obligate fungi",
+      "explanation": "Obligate fungi grow and reproduce only in living host tissue and cannot be maintained indefinitely on ordinary artificial media. They are preserved by repeatedly transferring or re-inoculating them on susceptible living hosts.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 31,
@@ -346,7 +596,15 @@
         "C": "Oblate",
         "D": "Saucer"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Plant Pathology / Fungal Fruiting Bodies",
+      "topic": "Shape of acervulus",
+      "explanation": "An acervulus is a shallow, saucer-shaped asexual fruiting body formed beneath the host epidermis. At maturity it ruptures the surface and exposes a mass of conidia.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 32,
@@ -357,7 +615,15 @@
         "C": "Plantvax",
         "D": "Metalaxyl"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Plant Pathology / Fungicides",
+      "topic": "Rust-specific systemic fungicide",
+      "explanation": "Plantvax is the trade name of oxycarboxin, a systemic fungicide particularly effective against rust diseases. It is absorbed by the plant and inhibits development of the rust fungus.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 33,
@@ -368,7 +634,15 @@
         "C": "Disease prevalence",
         "D": "None of the above"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Plant Pathology / Disease Assessment",
+      "topic": "Measurement of complete plant infection",
+      "explanation": "Disease incidence expresses the proportion or percentage of plant units that are diseased. It is appropriate when each plant or unit is classified simply as diseased or healthy, including diseases that cause complete loss of an affected plant.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 34,
@@ -379,7 +653,15 @@
         "C": "Powdery mildew",
         "D": "Smut"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Plant Pathology / Epidemiology",
+      "topic": "Monocyclic and polycyclic diseases",
+      "explanation": "Smut diseases are generally monocyclic because the pathogen completes one effective infection cycle during a crop season. Rusts, leaf spots and powdery mildews commonly produce repeated secondary cycles.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 35,
@@ -390,7 +672,15 @@
         "C": "Stem rust",
         "D": "All of these"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Plant Pathology / Disease Management",
+      "topic": "Solar heat treatment of wheat seed",
+      "explanation": "Solar or ultra-solar heat treatment is used to manage internally seed-borne loose smut of wheat. Moist seed is exposed to solar heat so that the dormant mycelium is killed without destroying seed viability.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 36,
@@ -401,7 +691,15 @@
         "C": "Oxygen",
         "D": "H2O"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Post-harvest Physiology / Potato",
+      "topic": "Black heart disorder of potato",
+      "explanation": "Black heart is an internal physiological disorder of potato caused by deficient oxygen supply in the tuber tissues. Poor ventilation and high respiration create an oxygen shortage, and the central tissue becomes dark or black.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 37,
@@ -412,18 +710,35 @@
         "C": "Antibiotics",
         "D": "All of the above"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Plant Pathology / Virology",
+      "topic": "Physical inactivation of plant viruses",
+      "explanation": "Plant viruses can be inactivated by heat when exposed above their thermal inactivation point for a sufficient period. Insecticides and antibiotics do not directly inactivate virus particles.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 38,
       "question": "Stem gall of coriander is caused by",
       "options": {
         "A": "Sporisorium reilianum",
-        "B": "Protomyces macrospores",
+        "B": "Protomyces macrosporus",
         "C": "Tolyposporium ehrenbergii",
         "D": "Sphacelotheca sorghi"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Plant Pathology / Spice Crop Diseases",
+      "topic": "Stem gall of coriander",
+      "explanation": "Stem gall of coriander is caused by Protomyces macrosporus. The pathogen produces swellings and galls on stems, petioles and other aerial parts of the plant.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 193.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 39,
@@ -434,7 +749,15 @@
         "C": "Hot-humid climate",
         "D": "Cold-humid climate"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Soil Science / Pedology",
+      "topic": "Pedocal soils",
+      "explanation": "Pedocals develop under arid and semi-arid climates where rainfall is insufficient for complete leaching. Calcium carbonate and other bases accumulate in the soil profile.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 40,
@@ -445,7 +768,15 @@
         "C": "Solum",
         "D": "Plinthite"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Soil Science / Soil Taxonomy",
+      "topic": "Plinthite",
+      "explanation": "Plinthite is an iron-rich, humus-poor mixture of clay with quartz and other diluents. On repeated wetting and drying it may harden irreversibly into ironstone.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 41,
@@ -457,7 +788,15 @@
         "D": "Permanent wilting point & hygroscopic coefficient"
       },
       "correctOption": "A",
-      "parseWarning": "Some option text was partly obscured in the screenshot."
+      "originalCorrectOption": "A",
+      "subject": "Soil Science / Soil Water",
+      "topic": "Plant-available soil water",
+      "explanation": "Field capacity is the upper limit of available water, while permanent wilting point is its lower limit. Therefore, plant-available water is the water retained in soil between field capacity and permanent wilting point.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book pages 122-123.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 42,
@@ -468,7 +807,15 @@
         "C": "Boron",
         "D": "Manganese"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Horticulture / Fruit Crops",
+      "topic": "Internal cork of apple",
+      "explanation": "Internal cork is a physiological disorder of apple associated with boron deficiency. Corky, brown internal tissues develop because boron is essential for normal cell-wall formation and fruit tissue development.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 43,
@@ -479,7 +826,16 @@
         "C": "Non-Symbiotic",
         "D": "Both A & B"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Soil Microbiology / Biofertilizers",
+      "topic": "Nitrogen fixation by blue-green algae",
+      "explanation": "Blue-green algae are free-living algal inoculants that fix atmospheric nitrogen without forming a direct symbiotic association with a crop plant. They are therefore classified as non-symbiotic nitrogen fixers.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 214.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 44,
@@ -490,7 +846,16 @@
         "C": "Citrate soluble P fertilizer",
         "D": "Nitric acid soluble P fertilizer"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Soil Science / Fertilizers",
+      "topic": "Classification of rock phosphate",
+      "explanation": "Rock phosphate is an insoluble phosphatic fertilizer in water but its phosphorus is evaluated through citrate solubility. It is therefore grouped as a citrate-soluble phosphatic fertilizer and is most effective in acid soils.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 202.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 45,
@@ -501,7 +866,16 @@
         "C": "Ammonium Chloride",
         "D": "Ammonium sulphate"
       },
-      "correctOption": "B"
+      "correctOption": "A",
+      "originalCorrectOption": "B",
+      "subject": "Soil Science / Fertilizers",
+      "topic": "Kisan Khad",
+      "explanation": "Calcium ammonium nitrate is also known as nitro-chalk, lime nitrate or Kisan Khad. It contains ammonium nitrate mixed with calcium carbonate, which reduces its acid-forming effect.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 201.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 46,
@@ -512,7 +886,15 @@
         "C": "0.06 ppm",
         "D": "1.6 ppm"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Soil Science / Micronutrients",
+      "topic": "Critical soil zinc level",
+      "explanation": "A soil-test zinc concentration of about 0.6 ppm is commonly used as the critical limit. Soils testing below this level are likely to respond to zinc application.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 47,
@@ -523,7 +905,15 @@
         "C": "One-half to one-third",
         "D": "One-third"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Soil Microbiology / Nitrogen Transformation",
+      "topic": "Moisture requirement for nitrification",
+      "explanation": "Nitrification proceeds best in a well-aerated, moist soil. A water content of about one-third to one-half of the soil water-holding capacity provides sufficient moisture while retaining air-filled pores for nitrifying organisms.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 48,
@@ -534,7 +924,16 @@
         "C": "Amrapali",
         "D": "Alphonso"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Horticulture / Mango",
+      "topic": "Spongy tissue disorder",
+      "explanation": "Spongy tissue is especially common in Alphonso mango. The affected portion of the mesocarp remains pale, sour and spongy, even though the fruit appears externally normal and ripe.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 101.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 49,
@@ -545,7 +944,16 @@
         "C": "Papaya",
         "D": "Orange"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Horticulture / Fruit Crop Diseases",
+      "topic": "Banana bunchy top",
+      "explanation": "Bunchy top is a serious viral disease of banana. Infected plants produce narrow, erect and crowded leaves at the top, giving the characteristic bunchy-top appearance, and severely affected plants fail to produce a normal bunch.",
+      "reference": "TNAU Agritech Portal - Banana Bunchy Top disease.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 50,
@@ -556,7 +964,15 @@
         "C": "Venturia",
         "D": "Fusarium"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Plant Pathology / Fruit Diseases",
+      "topic": "Apple scab",
+      "explanation": "Apple scab is caused by Venturia inaequalis. The fungus produces olive-green to dark scabby lesions on leaves and fruits and may cause cracking and premature leaf fall.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 51,
@@ -567,7 +983,15 @@
         "C": "Dibbling",
         "D": "Sprinkling"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Floriculture and Landscaping",
+      "topic": "Methods of lawn establishment",
+      "explanation": "Turfing establishes a lawn by laying ready-made pieces of grass turf over prepared soil. Because an already developed grass cover is placed directly on the site, it is the quickest method of raising a lawn.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 52,
@@ -578,7 +1002,15 @@
         "C": "China aster",
         "D": "Dog flower"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Floriculture / Annual Flowers",
+      "topic": "Fragrant climbing annual",
+      "explanation": "Sweet pea is a climbing winter annual valued for its showy and fragrant flowers. Its weak stems climb with the help of tendrils and require support.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 53,
@@ -589,7 +1021,15 @@
         "C": "Jacaranda mimosifolia",
         "D": "Cassia fistula"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Floriculture / Ornamental Trees",
+      "topic": "Yellow-flowering ornamental tree",
+      "explanation": "Cassia fistula is an ornamental tree bearing long, pendulous clusters of bright yellow flowers. It is well adapted to warm conditions and is commonly planted along roads and in gardens.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 54,
@@ -600,7 +1040,15 @@
         "C": "Dermestidae",
         "D": "Curculionidae"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Entomology / Stored-grain Pests",
+      "topic": "Systematic position of khapra beetle",
+      "explanation": "Trogoderma granarium, the khapra beetle, belongs to the family Dermestidae. Its hairy larvae are the damaging stage and feed on stored grains and grain products.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 55,
@@ -611,7 +1059,15 @@
         "C": "Endocuticle",
         "D": "Procuticle"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Entomology / Insect Morphology",
+      "topic": "Chitin distribution in insect cuticle",
+      "explanation": "The epicuticle is the thin outermost layer of the insect cuticle and lacks chitin. Chitin occurs in the underlying procuticle, which is differentiated into exocuticle and endocuticle.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 56,
@@ -622,18 +1078,34 @@
         "C": "Clavate and Capitate",
         "D": "Capitate and Clavate"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Entomology / Insect Antennae",
+      "topic": "Sexual dimorphism in mosquito antennae",
+      "explanation": "Male mosquitoes possess densely feathered, plumose antennae that help detect female wing-beat vibrations. Female mosquitoes have less hairy, pilose antennae.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 57,
-      "question": "The monophagus insect-pest of mango, which is also of quarantine importance is",
+      "question": "The monophagous insect-pest of mango, which is also of quarantine importance is",
       "options": {
         "A": "Mango stem borer",
         "B": "Bark eating caterpillar",
         "C": "Mango nut weevil",
         "D": "Mango mealy bug"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Entomology / Mango Pests",
+      "topic": "Monophagous quarantine pest of mango",
+      "explanation": "Mango nut weevil is a monophagous pest restricted to mango. The grub develops inside the stone, and the pest is of quarantine importance because infestation may remain concealed within apparently healthy fruits.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 58,
@@ -644,7 +1116,15 @@
         "C": "Plecoptera",
         "D": "Lepidoptera"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Entomology / Insect Metamorphosis",
+      "topic": "Paurometabolous development",
+      "explanation": "In paurometabolous insects, the immature stages are terrestrial nymphs that resemble the adults and develop external wing pads. Orthopteran insects such as grasshoppers show this type of gradual metamorphosis.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 59,
@@ -655,7 +1135,15 @@
         "C": "Abdominal segments and cerci",
         "D": "Mouthparts and salivary glands"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Entomology / Insect Nervous System",
+      "topic": "Functions of the suboesophageal ganglion",
+      "explanation": "The suboesophageal ganglion lies below the oesophagus and is formed from the mandibular, maxillary and labial ganglia. It controls the mouthparts, salivary glands and associated feeding movements.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 60,
@@ -666,7 +1154,15 @@
         "C": "Midgut",
         "D": "Malpighian tubules"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Entomology / Insect Digestive System",
+      "topic": "Grinding organ of insects",
+      "explanation": "The proventriculus or gizzard is the posterior part of the foregut. Its cuticular teeth and plates grind food and regulate its passage into the midgut.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 61,
@@ -677,7 +1173,15 @@
         "C": "Soil",
         "D": "Inflorescence"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Entomology / Fruit Flies",
+      "topic": "Pupation site of fruit flies",
+      "explanation": "Fruit-fly maggots leave the infested fruit after completing larval development, drop to the ground and pupate in the soil. The adult later emerges from the puparium.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 62,
@@ -688,7 +1192,15 @@
         "C": "Sprayable chemical",
         "D": "Soluble Concentrate"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Pesticide Science / Formulations",
+      "topic": "SC pesticide formulation",
+      "explanation": "SC denotes suspension concentrate. It is a stable suspension of finely divided solid active ingredient in a liquid medium and is diluted with water before spraying.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 63,
@@ -699,7 +1211,16 @@
         "C": "Chilo auricilius",
         "D": "Scirpophaga excerptalis"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Entomology / Sugarcane Pests",
+      "topic": "Sugarcane top borer",
+      "explanation": "The sugarcane top borer is Scirpophaga excerptalis. Its larvae enter through the leaf midrib and bore towards the growing point, producing shot holes, dead heart or bunchy-top symptoms.",
+      "reference": "TNAU Agritech Portal - Pest of Sugarcane: Top shoot borer.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 64,
@@ -710,7 +1231,15 @@
         "C": "Hexalure",
         "D": "Helilure"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Entomology / Pest Monitoring",
+      "topic": "Pink bollworm parapheromone",
+      "explanation": "Hexalure is used as a synthetic attractant in traps for monitoring male pink bollworm moths. Trap catches help determine pest activity and the timing of management measures.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 65,
@@ -721,7 +1250,15 @@
         "C": "United Nations Conference on Trade and Development (UNCTAD)",
         "D": "World Trade Organization (WTO)"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Agricultural Economics / International Trade",
+      "topic": "Successor to GATT",
+      "explanation": "The World Trade Organization succeeded the General Agreement on Tariffs and Trade. The WTO provides the institutional framework for administering multilateral trade agreements and resolving trade disputes.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 66,
@@ -732,7 +1269,15 @@
         "C": "Financial aid to industrial sectors",
         "D": "All of these"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Agricultural Economics / Agricultural Finance",
+      "topic": "Meaning of agricultural finance",
+      "explanation": "Agricultural finance concerns the acquisition and use of funds required for agricultural production and allied activities. It includes credit needed for inputs, machinery, land improvement and other farm operations.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 67,
@@ -743,7 +1288,15 @@
         "C": "Firms sell differentiated products.",
         "D": "There are significant barriers to entry."
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Agricultural Economics / Market Structure",
+      "topic": "Perfect competition",
+      "explanation": "A perfectly competitive market contains many buyers and sellers dealing in a homogeneous product, with free entry and exit. No individual firm can influence the market price, so each firm acts as a price taker.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 68,
@@ -754,7 +1307,15 @@
         "C": "Government policies",
         "D": "Consumption"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Agricultural Economics / Agricultural Marketing",
+      "topic": "Factors affecting marketable surplus",
+      "explanation": "Marketable surplus is the quantity remaining after meeting family consumption, seed, feed, wages and other farm requirements. It is directly influenced by output, holding size and the producer household’s consumption requirements.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 69,
@@ -766,7 +1327,14 @@
         "D": "Liquidity"
       },
       "correctOption": "A",
-      "parseWarning": "Option B was partly obscured in the screenshot."
+      "originalCorrectOption": "A",
+      "subject": "Agricultural Economics / Agricultural Marketing",
+      "topic": "Market integration",
+      "explanation": "Integration in marketing occurs when related marketing functions or stages are brought under unified control. Expansion by adding successive marketing functions under one management is vertical integration.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 70,
@@ -777,7 +1345,15 @@
         "C": "Animal husbandry practices",
         "D": "The study of crop diseases"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Agricultural Economics / Production Economics",
+      "topic": "Scope of agricultural production economics",
+      "explanation": "Agricultural production economics applies economic principles to decisions about the combination and allocation of scarce farm resources. Its objective is to obtain the most profitable or efficient level of agricultural production.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 71,
@@ -788,7 +1364,16 @@
         "C": "Focus solely on livestock production",
         "D": "Eliminate crop production"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Agronomy / Farming Systems",
+      "topic": "Integrated farming system",
+      "explanation": "An integrated farming system combines compatible enterprises such as crops, livestock, fishery, horticulture or poultry so that farm resources and by-products are efficiently recycled. This integration improves resource-use efficiency, reduces risk and supports higher and more regular farm income.",
+      "reference": "ICAR - Integrated Farming System resources and success stories.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 72,
@@ -799,7 +1384,15 @@
         "C": "Place",
         "D": "Profit"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Agricultural Economics / Marketing Management",
+      "topic": "Seven Ps of marketing",
+      "explanation": "The seven Ps of marketing are product, price, place, promotion, people, process and physical evidence. Profit is an objective or outcome of marketing activity, but it is not one of the seven elements of the marketing mix.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 73,
@@ -810,7 +1403,15 @@
         "C": "Yamuna Nagar",
         "D": "Ambala"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Forestry / Forest Products Marketing",
+      "topic": "Timber market of Haryana",
+      "explanation": "Yamuna Nagar is a major wood-processing and timber-trading centre of Haryana and is widely known for its large timber market and plywood industry.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 74,
@@ -821,7 +1422,16 @@
         "C": "Solan",
         "D": "Dehra Dun"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Forestry / Research Institutions",
+      "topic": "Headquarters of ICFRE",
+      "explanation": "The Indian Council of Forestry Research and Education is the apex body of the national forestry research system, and its headquarters is located at Dehra Dun, Uttarakhand.",
+      "reference": "ICFRE official website - History and Headquarters.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 75,
@@ -832,7 +1442,15 @@
         "C": "Both A & B",
         "D": "None of these"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Forestry / Forest Mensuration",
+      "topic": "Girth or circumference of a tree",
+      "explanation": "Tree girth is the circumference of the stem. For a circular stem, circumference is calculated as 2πr; because diameter is twice the radius, the same value may also be written as πD.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 76,
@@ -843,7 +1461,16 @@
         "C": "He chose one trait at a time in his studies",
         "D": "He was good at statistics"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Genetics / Mendelian Genetics",
+      "topic": "Reasons for Mendel’s experimental success",
+      "explanation": "Mendel studied clear contrasting characters in garden pea and followed the inheritance of individual characters systematically. Studying distinct traits separately made segregation patterns easier to identify and analyse.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book pages 147-149.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 77,
@@ -854,7 +1481,15 @@
         "C": "2n+1+1",
         "D": "2n-1-1"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Genetics / Cytogenetics",
+      "topic": "Double monosomy",
+      "explanation": "A monosomic individual lacks one chromosome from a homologous pair and is represented as 2n-1. Double monosomy means that one chromosome is missing from each of two different chromosome pairs, so it is represented as 2n-1-1.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 78,
@@ -866,18 +1501,33 @@
         "D": "Single seed descent"
       },
       "correctOption": "A",
-      "parseWarning": "Option D was partly obscured in the screenshot."
+      "originalCorrectOption": "A",
+      "subject": "Genetics and Plant Breeding",
+      "topic": "Pedigree method of breeding",
+      "explanation": "In the pedigree method, desirable plants are selected generation after generation from segregating populations, and the ancestry of each selected line is recorded. It is one of the most commonly used methods for improving self-pollinated crops.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 79,
-      "question": "If the recombination frequency is 5% between two loci, what will be the distance between them in terms of centi morgan unit",
+      "question": "If the recombination frequency is 5% between two loci, what will be the distance between them in terms of centimorgan unit",
       "options": {
-        "A": "0 CM",
-        "B": "5 CM",
-        "C": "50 CM",
-        "D": "100 CM"
+        "A": "0 cM",
+        "B": "5 cM",
+        "C": "50 cM",
+        "D": "100 cM"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Genetics / Linkage Mapping",
+      "topic": "Recombination frequency and map distance",
+      "explanation": "One per cent recombination between two loci is equal to one map unit or one centimorgan. Therefore, a recombination frequency of 5 per cent corresponds to a map distance of 5 cM.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 80,
@@ -888,7 +1538,15 @@
         "C": "Robin Holliday",
         "D": "Rosalind Franklin"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Genetics / Molecular Recombination",
+      "topic": "Holliday model",
+      "explanation": "Robin Holliday proposed a molecular model of homologous recombination in which homologous DNA molecules exchange strands and form a cross-shaped intermediate known as the Holliday junction.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 81,
@@ -899,7 +1557,16 @@
         "C": "Dope",
         "D": "Douglass"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Genetics and Plant Breeding",
+      "topic": "Plant ideotype concept",
+      "explanation": "The crop ideotype concept was proposed by C. M. Donald. An ideotype is an idealized plant type with a specified combination of morphological and physiological characters expected to give high performance in a particular environment.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 8.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 82,
@@ -910,18 +1577,34 @@
         "C": "Reciprocal Recurrent Selection",
         "D": "Top cross"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Genetics and Plant Breeding",
+      "topic": "Simultaneous improvement of two populations",
+      "explanation": "Reciprocal recurrent selection improves two populations simultaneously by selecting individuals from each population on the basis of their combining ability with the other population. Improved selected plants are recombined within their respective populations.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 83,
-      "question": "Presence of (B) Maintainer line genotype in A (Female line) line is called as",
+      "question": "Presence of B-line (maintainer-line) genotype in the A-line (female line) is called as",
       "options": {
         "A": "Off type",
         "B": "Partial true to type",
         "C": "Pollen shedder",
         "D": "Rogue"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Seed Production / Hybrid Seed Production",
+      "topic": "Pollen shedders in male-sterile line",
+      "explanation": "In a male-sterile A-line seed-production plot, a plant that carries maintainer-line fertility and produces pollen is called a pollen shedder. Such plants must be removed because they contaminate hybrid seed production.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 84,
@@ -932,7 +1615,15 @@
         "C": "Lattice Design",
         "D": "Grid method"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Agricultural Statistics / Experimental Design",
+      "topic": "Evaluation of large germplasm collections",
+      "explanation": "An augmented design is suitable when a large number of new germplasm entries must be tested but seed is limited. Test entries are generally unreplicated, while standard checks are replicated to estimate experimental variation.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 85,
@@ -943,7 +1634,15 @@
         "C": "F test",
         "D": "Chi square test"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Agricultural Statistics",
+      "topic": "Goodness-of-fit test",
+      "explanation": "The chi-square test compares observed frequencies with frequencies expected under a stated hypothesis. It is therefore used to test goodness of fit, including the agreement of observed genetic ratios with expected Mendelian ratios.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 86,
@@ -954,7 +1653,16 @@
         "C": "Chennai",
         "D": "Kolkata"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Seed Legislation / Plant Variety Protection",
+      "topic": "Headquarters of PPV&FR Authority",
+      "explanation": "The Protection of Plant Varieties and Farmers’ Rights Authority is located at the NASC Complex, New Delhi. It administers plant-variety registration and the protection of breeders’ and farmers’ rights under the PPV&FR Act.",
+      "reference": "PPV&FR Authority official website - About Us and Contact Us.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 87,
@@ -965,7 +1673,16 @@
         "C": "AFLP",
         "D": "ISSR"
       },
-      "correctOption": "B"
+      "correctOption": "A",
+      "originalCorrectOption": "B",
+      "subject": "Genetics / Molecular Markers",
+      "topic": "Dominant and co-dominant markers",
+      "explanation": "RFLP and SSR markers are co-dominant because both alleles at a locus can be distinguished in a heterozygote. AFLP and ISSR are generally scored as dominant presence-or-absence markers. Therefore, both RFLP and SSR are not dominant markers.",
+      "correctOptions": [
+        "A",
+        "B"
+      ],
+      "reviewStatus": "multiple-correct"
     },
     {
       "number": 88,
@@ -976,7 +1693,15 @@
         "C": "By altering atmospheric pressure surrounding their farm",
         "D": "By using windbreaks and mulching in their farm"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Agricultural Meteorology",
+      "topic": "Modification of crop microclimate",
+      "explanation": "Windbreaks reduce wind speed and modify temperature, humidity and evaporation around crops. Mulches cover the soil surface, reduce evaporation, moderate soil temperature and alter the near-surface microclimate.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 89,
@@ -987,7 +1712,16 @@
         "C": "Changes in ocean currents (Arabian & Bay of Bengal ocean)",
         "D": "Movements of tectonic plate"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Environmental Science / Climate Change",
+      "topic": "Primary cause of global climate change",
+      "explanation": "The enhanced greenhouse effect results from increasing concentrations of greenhouse gases such as carbon dioxide, methane and nitrous oxide. These gases trap outgoing long-wave radiation and raise the average temperature of the atmosphere.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book pages 30-31.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 90,
@@ -998,7 +1732,15 @@
         "C": "Mapping land use patterns",
         "D": "Measuring atmospheric pressure"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Remote Sensing and GIS",
+      "topic": "Agricultural applications of GIS",
+      "explanation": "A geographic information system stores, integrates and analyses spatially referenced information. In agriculture it is used to prepare and analyse maps of land use, soils, crops, irrigation and other geographically distributed resources.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 91,
@@ -1009,7 +1751,15 @@
         "C": "1873",
         "D": "1976"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Agricultural Extension",
+      "topic": "Origin of the term extension education",
+      "explanation": "The term extension education came into use in 1873 in connection with university extension work. It later developed into an organized educational process for taking useful knowledge beyond formal institutions.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 92,
@@ -1020,7 +1770,16 @@
         "C": "NIRD",
         "D": "ICAR"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Agricultural Extension / ICAR Programmes",
+      "topic": "Lab to Land Programme",
+      "explanation": "The Lab to Land Programme was launched by ICAR in 1979, its golden-jubilee year, to transfer proven agricultural technologies and skills from research institutions to farm families.",
+      "reference": "Guide for Agricultural Competitive Examinations - R. K. Sharma et al., Book page 13.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 93,
@@ -1031,7 +1790,15 @@
         "C": "Aristotle Model",
         "D": "None of these"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Agricultural Extension / Communication",
+      "topic": "Aristotle’s communication model",
+      "explanation": "Aristotle’s model is a speaker-centred communication model consisting mainly of the speaker, the speech and the audience. It emphasizes effective public speaking and the influence of the speaker on listeners.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 94,
@@ -1042,7 +1809,15 @@
         "C": "Seven",
         "D": "Eight"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Agricultural Extension / Diffusion and Adoption",
+      "topic": "Stages of the adoption process",
+      "explanation": "The adoption process consists of five stages: awareness, interest, evaluation, trial and adoption. These stages describe the sequence through which an individual moves from first learning about an innovation to accepting and using it.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 95,
@@ -1053,7 +1828,15 @@
         "C": "Evaluation of progress",
         "D": "All of these"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Agricultural Extension / Programme Planning",
+      "topic": "Elements of extension programme planning",
+      "explanation": "Extension programme planning includes collection of facts, analysis of the situation, identification of problems and objectives, preparation and execution of a plan of work, and evaluation of progress. Therefore, all the listed activities are elements of programme planning.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 96,
@@ -1064,7 +1847,15 @@
         "C": "Greek",
         "D": "German"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Entrepreneurship Development",
+      "topic": "Origin of the word entrepreneur",
+      "explanation": "The word entrepreneur is derived from the French verb entreprendre, meaning to undertake. An entrepreneur undertakes an enterprise, organizes resources and bears the risks associated with the activity.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 97,
@@ -1075,7 +1866,16 @@
         "C": "Smt. Annapurna Devi",
         "D": "Shri Jitan Ram Manjhi"
       },
-      "correctOption": "D"
+      "correctOption": "D",
+      "originalCorrectOption": "D",
+      "subject": "Agricultural Economics / Current Affairs",
+      "topic": "Union Minister for Micro, Small and Medium Enterprises",
+      "explanation": "Shri Jitan Ram Manjhi was the Union Minister of Micro, Small and Medium Enterprises at the time of the 2025 examination.",
+      "reference": "Ministry of Micro, Small & Medium Enterprises, Government of India - Minister Profile and Who’s Who.",
+      "correctOptions": [
+        "D"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 98,
@@ -1086,7 +1886,16 @@
         "C": "98",
         "D": "100"
       },
-      "correctOption": "A"
+      "correctOption": "A",
+      "originalCorrectOption": "A",
+      "subject": "Seed Science and Technology",
+      "topic": "Genetic purity standard of foundation seed",
+      "explanation": "The minimum genetic purity prescribed for foundation seed is 99%, so option A is correct.",
+      "reference": "TNAU Agritech Portal - Seed Multiplication and Seed Certification.",
+      "correctOptions": [
+        "A"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 99,
@@ -1097,7 +1906,16 @@
         "C": "Voluntary",
         "D": "All of these"
       },
-      "correctOption": "C"
+      "correctOption": "C",
+      "originalCorrectOption": "C",
+      "subject": "Seed Legislation and Certification",
+      "topic": "Nature of seed certification in India",
+      "explanation": "Seed certification is voluntary in India. A seed producer may obtain certification by meeting prescribed field and seed standards, whereas truthful labelling is compulsory for notified kinds and varieties sold as seed.",
+      "reference": "TNAU Agritech Portal - Seed Multiplication and Seed Certification.",
+      "correctOptions": [
+        "C"
+      ],
+      "reviewStatus": "reviewed"
     },
     {
       "number": 100,
@@ -1108,7 +1926,17 @@
         "C": "Wheat",
         "D": "Groundnut"
       },
-      "correctOption": "B"
+      "correctOption": "B",
+      "originalCorrectOption": "B",
+      "subject": "Seed Science and Technology",
+      "topic": "Seed-coat peroxidase test",
+      "explanation": "The seed-coat peroxidase test is used in soybean to distinguish varieties on the basis of peroxidase enzyme activity in the seed coat. The reaction produces a characteristic colour response and is useful in varietal identification and genetic-purity testing.",
+      "correctOptions": [
+        "B"
+      ],
+      "reviewStatus": "reviewed"
     }
-  ]
+  ],
+  "answerKeyVersion": 2,
+  "analysisVersion": "2026-06-29-reviewed-v1"
 }
