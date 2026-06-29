@@ -101,6 +101,7 @@
 
   const renderExistingRoute = render;
   render = function renderWithSubjects() {
+    document.documentElement.classList.remove("question-palette-open");
     applyCanonicalSubjects();
     if (state.route === "subjects") {
       renderSubjects();
@@ -127,31 +128,26 @@
 
   let pendingPaperQuestion = 1;
 
-  function visibleQuestionNumber(selector) {
-    const cards = [...app.querySelectorAll(selector)];
-    if (!cards.length) return 1;
+  function visiblePaperQuestionNumber() {
+    const appRect = app.getBoundingClientRect();
+    const x = Math.max(16, Math.min(window.innerWidth - 16, appRect.left + (appRect.width / 2)));
+    const anchorPoints = [96, 132, 176, 220].filter((y) => y < window.innerHeight);
 
-    const anchor = Math.min(140, Math.max(84, window.innerHeight * 0.16));
-    let closestNumber = 1;
-    let closestDistance = Number.POSITIVE_INFINITY;
+    for (const y of anchorPoints) {
+      const card = document.elementFromPoint(x, y)?.closest?.('article.question-card[id^="question-"]');
+      const number = Number(card?.id.match(/^question-(\d+)$/)?.[1]);
+      if (number) return number;
+    }
 
-    cards.forEach((card) => {
+    const cards = app.querySelectorAll('article.question-card[id^="question-"]');
+    for (const card of cards) {
       const rect = card.getBoundingClientRect();
-      const isVisible = rect.bottom > 0 && rect.top < window.innerHeight;
-      const crossesAnchor = rect.top <= anchor && rect.bottom >= anchor;
-      const distance = crossesAnchor
-        ? 0
-        : Math.min(Math.abs(rect.top - anchor), Math.abs(rect.bottom - anchor))
-          + (isVisible ? 0 : window.innerHeight);
-      const number = Number(card.dataset.resultQuestion || card.id.match(/^question-(\d+)$/)?.[1]);
-
-      if (number && distance < closestDistance) {
-        closestDistance = distance;
-        closestNumber = number;
+      if (rect.bottom > 76 && rect.top < window.innerHeight) {
+        return Number(card.id.match(/^question-(\d+)$/)?.[1]) || 1;
       }
-    });
+    }
 
-    return closestNumber;
+    return 1;
   }
 
   function markPaletteQuestion(buttonSelector, datasetKey, questionNumber) {
@@ -164,22 +160,14 @@
   }
 
   function centerPaletteQuestion(gridSelector) {
-    const center = () => {
+    requestAnimationFrame(() => {
       const grid = app.querySelector(gridSelector);
       const current = grid?.querySelector("button.current");
       if (!grid || !current) return;
 
       const targetTop = current.offsetTop - (grid.clientHeight / 2) + (current.offsetHeight / 2);
-      if (typeof grid.scrollTo === "function") {
-        grid.scrollTo({ top: Math.max(0, targetTop), behavior: "auto" });
-      } else {
-        grid.scrollTop = Math.max(0, targetTop);
-      }
-    };
-
-    requestAnimationFrame(center);
-    window.setTimeout(center, 90);
-    window.setTimeout(center, 240);
+      grid.scrollTop = Math.max(0, targetTop);
+    });
   }
 
   function syncPaletteLayerState() {
@@ -189,73 +177,9 @@
     );
   }
 
-  function openResultPalette() {
-    const layer = app.querySelector(".result-palette-layer");
-    if (!layer) return;
-
-    const questionNumber = visibleQuestionNumber(".result-question-card[data-result-question]");
-    markPaletteQuestion(".result-number-grid [data-result-jump]", "resultJump", questionNumber);
-    layer.classList.add("open");
-    layer.setAttribute("aria-hidden", "false");
-    syncPaletteLayerState();
-    centerPaletteQuestion(".result-number-grid");
-  }
-
-  function closeResultPalette() {
-    const layer = app.querySelector(".result-palette-layer");
-    if (!layer) return;
-    layer.classList.remove("open");
-    layer.setAttribute("aria-hidden", "true");
-    syncPaletteLayerState();
-  }
-
   app.addEventListener("click", (event) => {
     if (event.target.closest?.("#questionNavOpen")) {
-      pendingPaperQuestion = visibleQuestionNumber('article.question-card[id^="question-"]');
-      return;
-    }
-
-    if (event.target.closest?.("#resultPaletteOpen")) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      openResultPalette();
-      return;
-    }
-
-    if (event.target.closest?.("#resultPaletteClose, #resultPaletteCloseButton")) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      closeResultPalette();
-      return;
-    }
-
-    const resultJumpButton = event.target.closest?.("[data-result-jump]");
-    if (!resultJumpButton) return;
-
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    const questionNumber = Number(resultJumpButton.dataset.resultJump);
-    markPaletteQuestion(".result-number-grid [data-result-jump]", "resultJump", questionNumber);
-    closeResultPalette();
-    requestAnimationFrame(() => {
-      document.querySelector(`#result-question-${questionNumber}`)?.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    });
-  }, true);
-
-  app.addEventListener("click", (event) => {
-    if (event.target.closest?.("#questionNavOpen")) {
-      window.setTimeout(() => {
-        markPaletteQuestion(
-          ".question-number-grid [data-jump-question]",
-          "jumpQuestion",
-          pendingPaperQuestion
-        );
-        syncPaletteLayerState();
-        centerPaletteQuestion(".question-number-grid");
-      }, 0);
+      pendingPaperQuestion = visiblePaperQuestionNumber();
       return;
     }
 
@@ -272,19 +196,37 @@
       return;
     }
 
+    if (event.target.closest?.("#questionNavOpen")) {
+      window.setTimeout(() => {
+        markPaletteQuestion(
+          ".question-number-grid [data-jump-question]",
+          "jumpQuestion",
+          pendingPaperQuestion
+        );
+        syncPaletteLayerState();
+        centerPaletteQuestion(".question-number-grid");
+      }, 0);
+      return;
+    }
+
     if (event.target.closest?.(
       "#questionNavClose, #questionNavCloseButton, #testPaletteClose, #testPaletteCloseButton"
     )) {
       window.setTimeout(syncPaletteLayerState, 0);
     }
-  });
+  }, true);
 
-  const paletteObserver = new MutationObserver(syncPaletteLayerState);
-  paletteObserver.observe(app, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["class", "aria-hidden"]
+  app.addEventListener("click", (event) => {
+    if (!event.target.closest?.("#questionNavOpen")) return;
+    window.setTimeout(() => {
+      markPaletteQuestion(
+        ".question-number-grid [data-jump-question]",
+        "jumpQuestion",
+        pendingPaperQuestion
+      );
+      syncPaletteLayerState();
+      centerPaletteQuestion(".question-number-grid");
+    }, 0);
   });
 
   if (!document.querySelector("#hauSubjectsFeatureStyles")) {
