@@ -12,11 +12,15 @@
     return match ? Number(match[1]) : null;
   }
 
-  function admissionYearError(value, currentYear = new Date().getFullYear()) {
+  function hasFutureAdmissionYear(value, currentYear = new Date().getFullYear()) {
     const year = admissionYear(value);
-    return year !== null && year > currentYear
-      ? `Admission year cannot be later than ${currentYear}.`
-      : "";
+    return year !== null && year > currentYear;
+  }
+
+  function admissionErrorForForm(form) {
+    return form?.id === "signupForm"
+      ? "Invalid admission number."
+      : "Invalid admission number or password.";
   }
 
   function admissionValueFromForm(form) {
@@ -26,8 +30,8 @@
   function blockFutureAdmissionYear(form, event) {
     if (!form || !FORM_IDS.has(form.id)) return false;
 
-    const error = admissionYearError(admissionValueFromForm(form));
-    if (!error) return false;
+    if (!hasFutureAdmissionYear(admissionValueFromForm(form))) return false;
+    const error = admissionErrorForForm(form);
 
     event.preventDefault();
     event.stopPropagation();
@@ -35,7 +39,7 @@
 
     if (typeof setError === "function") {
       setError("admissionNumber", error);
-      setError("form", "Please fix the highlighted field above.");
+      setError("form", form.id === "signupForm" ? "Please fix the highlighted field above." : "");
     }
 
     form.elements?.admissionNumber?.focus?.({ preventScroll: true });
@@ -54,7 +58,9 @@
     ) {
       const existingError = existingValidateAdmission(admissionNumber, campus, programme);
       if (existingError) return existingError;
-      return admissionYearError(admissionNumber);
+      return hasFutureAdmissionYear(admissionNumber)
+        ? "Invalid admission number."
+        : "";
     };
   }
 
@@ -74,6 +80,7 @@
   window.HAU_ADMISSION_YEAR_RULE = Object.freeze({
     normalizeAdmission,
     admissionYear,
-    admissionYearError
+    hasFutureAdmissionYear,
+    admissionErrorForForm
   });
 })();
