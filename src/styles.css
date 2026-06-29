@@ -780,6 +780,11 @@ button {
   touch-action: manipulation;
 }
 
+#clearTestAnswer { order: 1; }
+#markTestReview { order: 2; }
+#prevTestQuestion { order: 3; }
+#nextTestQuestion { order: 4; }
+
 .test-submit-button {
   margin-top: 14px;
 }
