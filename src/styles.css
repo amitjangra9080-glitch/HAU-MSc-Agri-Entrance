@@ -2093,3 +2093,55 @@ summary:focus-visible {
   }
 }
 
+/* --------------------------------------------------------------------------
+   Mobile search behaviour fixes
+   Keeps the active search input mounted, hides bottom navigation while the
+   mobile keyboard is open, removes the search focus rectangle, and keeps
+   search controls sticky on home, results, and paper views.
+   -------------------------------------------------------------------------- */
+
+.home-head {
+  display: contents;
+}
+
+.home-head .sticky-search {
+  margin-bottom: 12px;
+}
+
+.sticky-search {
+  position: sticky;
+  top: 66px;
+  z-index: 4;
+}
+
+.search,
+.search:focus-within,
+.search input,
+.search input:focus,
+.search input:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+
+.search input:focus,
+.search input:focus-visible {
+  border: 0 !important;
+  box-shadow: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.bottom-nav {
+  transition:
+    opacity 140ms ease,
+    visibility 140ms ease,
+    transform 140ms ease;
+}
+
+html.search-keyboard-open .bottom-nav {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, calc(100% + 28px));
+}
+
