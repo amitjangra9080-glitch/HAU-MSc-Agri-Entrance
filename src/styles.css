@@ -2093,3 +2093,140 @@ summary:focus-visible {
   }
 }
 
+/* --------------------------------------------------------------------------
+   Mobile search behaviour fixes
+   Keeps the active search input mounted, hides bottom navigation while the
+   mobile keyboard is open, removes the search focus rectangle, and keeps
+   search controls sticky on home, results, and paper views.
+   -------------------------------------------------------------------------- */
+
+.home-head {
+  display: contents;
+}
+
+.home-head .sticky-search {
+  margin-bottom: 12px;
+}
+
+.sticky-search {
+  position: sticky;
+  top: 66px;
+  z-index: 4;
+}
+
+.search,
+.search:focus-within,
+.search input,
+.search input:focus,
+.search input:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+
+.search input:focus,
+.search input:focus-visible {
+  border: 0 !important;
+  box-shadow: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.bottom-nav {
+  transition:
+    opacity 140ms ease,
+    visibility 140ms ease,
+    transform 140ms ease;
+}
+
+html.search-keyboard-open .bottom-nav {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, calc(100% + 28px));
+}
+
+/* Sticky search reliability fix for iOS Safari */
+.app-shell {
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+.screen,
+.home-head {
+  overflow: visible;
+}
+
+.sticky-search {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 66px;
+  z-index: 20;
+  isolation: isolate;
+  background: rgba(248, 251, 247, 0.96);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.sticky-search::after {
+  content: "";
+  position: absolute;
+  inset: -8px -4px;
+  z-index: -1;
+  border-radius: 22px;
+  background: rgba(238, 246, 237, 0.9);
+  pointer-events: none;
+}
+
+/* Search clear button */
+.search-clear {
+  position: relative;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  margin-right: -6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: manipulation;
+}
+
+.search-clear::before,
+.search-clear::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 17px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.search-clear::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.search-clear::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.search-clear:active {
+  background: rgba(47, 125, 74, 0.1);
+  color: var(--primary-dark);
+}
+
+.search-clear:focus,
+.search-clear:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.search-clear[hidden] {
+  display: none;
+}
+
