@@ -21,6 +21,18 @@ export function normalizePhone(value) {
   return text(value).replace(/^\+91/, "").replace(/\D/g, "");
 }
 
+function admissionYear(admissionNumber) {
+  const match = admissionNumber.match(/^(?:B|K)?(\d{4})A/);
+  return match ? Number(match[1]) : null;
+}
+
+function validateAdmissionYear(admissionNumber, currentYear = new Date().getFullYear()) {
+  const year = admissionYear(admissionNumber);
+  return year !== null && year > currentYear
+    ? `Admission year cannot be later than ${currentYear}.`
+    : "";
+}
+
 function campusPrefix(campus) {
   if (campus === "Bawal") return "B";
   if (campus === "Kaul") return "K";
@@ -33,6 +45,9 @@ function programmeCode(programme) {
 
 function validateAdmission(admissionNumber, campus, programme) {
   if (!ADMISSION_PATTERN.test(admissionNumber)) return "Invalid admission number.";
+
+  const yearError = validateAdmissionYear(admissionNumber);
+  if (yearError) return yearError;
 
   const expectedPrefix = campusPrefix(campus);
   if (expectedPrefix && !admissionNumber.startsWith(expectedPrefix)) {
@@ -84,6 +99,9 @@ export function validateRegistrationInput(input = {}) {
     if (admissionError) errors.admissionNumber = admissionError;
   } else if (!data.admissionNumber || !ADMISSION_PATTERN.test(data.admissionNumber)) {
     errors.admissionNumber = "Invalid admission number.";
+  } else {
+    const yearError = validateAdmissionYear(data.admissionNumber);
+    if (yearError) errors.admissionNumber = yearError;
   }
 
   const allowedStatuses = ACADEMIC_STATUS_BY_PROGRAMME[data.programme] || [];

@@ -5,13 +5,30 @@ export function normalizeAdmissionNumber(value) {
   return String(value ?? "").toUpperCase().replace(/\s+/g, "");
 }
 
+function admissionYear(admissionNumber) {
+  const match = admissionNumber.match(/^(?:B|K)?(\d{4})A/);
+  return match ? Number(match[1]) : null;
+}
+
+function admissionError(admissionNumber, currentYear = new Date().getFullYear()) {
+  if (!ADMISSION_PATTERN.test(admissionNumber)) return "Invalid admission number.";
+
+  const year = admissionYear(admissionNumber);
+  if (year !== null && year > currentYear) {
+    return `Admission year cannot be later than ${currentYear}.`;
+  }
+
+  return "";
+}
+
 export function validateLoginInput(value = {}) {
   const admissionNumber = normalizeAdmissionNumber(value.admissionNumber);
   const password = typeof value.password === "string" ? value.password : "";
   const errors = {};
 
-  if (!ADMISSION_PATTERN.test(admissionNumber)) {
-    errors.admissionNumber = "Invalid admission number.";
+  const validationError = admissionError(admissionNumber);
+  if (validationError) {
+    errors.admissionNumber = validationError;
   }
   if (!password) {
     errors.password = "Enter your password.";
@@ -26,8 +43,9 @@ export function validateLoginInput(value = {}) {
 
 export function validatePasswordResetInput(value = {}) {
   const admissionNumber = normalizeAdmissionNumber(value.admissionNumber);
-  if (!ADMISSION_PATTERN.test(admissionNumber)) {
-    return { ok: false, errors: { admissionNumber: "Invalid admission number." } };
+  const validationError = admissionError(admissionNumber);
+  if (validationError) {
+    return { ok: false, errors: { admissionNumber: validationError } };
   }
   return { ok: true, data: { admissionNumber } };
 }
