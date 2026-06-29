@@ -11,11 +11,13 @@ function admissionYear(admissionNumber) {
 }
 
 function admissionError(admissionNumber, currentYear = new Date().getFullYear()) {
-  if (!ADMISSION_PATTERN.test(admissionNumber)) return "Invalid admission number.";
+  if (!ADMISSION_PATTERN.test(admissionNumber)) {
+    return "Invalid admission number or password.";
+  }
 
   const year = admissionYear(admissionNumber);
   if (year !== null && year > currentYear) {
-    return `Admission year cannot be later than ${currentYear}.`;
+    return "Invalid admission number or password.";
   }
 
   return "";
