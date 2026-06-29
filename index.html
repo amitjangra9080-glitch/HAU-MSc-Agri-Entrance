@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#eef6ed" />
     <title>HAU M.Sc Agri Entrance</title>
-    <link rel="stylesheet" href="src/styles.css?v=20260629-mobile-clay1" />
+    <link rel="stylesheet" href="src/styles.css?v=20260629-welcome-plant1" />
   </head>
   <body>
     <main id="app" class="app-shell"></main>
@@ -15,5 +15,48 @@
     <script src="src/atomic-registration.js?v=20260628-atomic1"></script>
     <script src="src/secure-auth.js?v=20260628-secure-login1"></script>
     <script src="src/result-analysis.js?v=20260629-pyq-reviewed1"></script>
+    <script>
+      (() => {
+        const description = "Search previous-year questions, learn, and attempt PYQs as mock tests.";
+        const plantMarkup = `
+          <svg class="welcome-plant" viewBox="0 0 72 72" aria-hidden="true" focusable="false">
+            <g class="plant-body">
+              <path class="plant-stem" d="M36 53C36 43 36 31 37 20" />
+              <path class="plant-leaf plant-leaf-left" d="M35 37C24 37 18 31 18 22C28 22 35 27 35 37Z" />
+              <path class="plant-leaf plant-leaf-right" d="M37 31C47 31 54 25 54 16C44 16 37 22 37 31Z" />
+              <path class="plant-leaf plant-leaf-top" d="M37 23C31 18 31 12 36 8C42 13 42 19 37 23Z" />
+            </g>
+            <ellipse class="plant-soil" cx="36" cy="54" rx="14" ry="5" />
+            <path class="plant-pot" d="M22 52H50L46 65H26L22 52Z" />
+            <circle class="plant-spark plant-spark-one" cx="17" cy="14" r="2" />
+            <circle class="plant-spark plant-spark-two" cx="58" cy="38" r="1.6" />
+          </svg>`;
+
+        function enhanceWelcomeBranding() {
+          const welcome = document.querySelector(".welcome");
+          if (!welcome) return;
+
+          const brand = welcome.querySelector(".brand-mark");
+          if (brand && brand.dataset.plantBrand !== "true") {
+            brand.innerHTML = plantMarkup;
+            brand.dataset.plantBrand = "true";
+            brand.setAttribute("aria-hidden", "true");
+          }
+
+          const support = welcome.querySelector(".support");
+          if (support && support.textContent !== description) {
+            support.textContent = description;
+          }
+        }
+
+        const appRoot = document.querySelector("#app");
+        if (!appRoot) return;
+        new MutationObserver(enhanceWelcomeBranding).observe(appRoot, {
+          childList: true,
+          subtree: true
+        });
+        enhanceWelcomeBranding();
+      })();
+    </script>
   </body>
 </html>
