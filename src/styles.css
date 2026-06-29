@@ -2177,3 +2177,56 @@ html.search-keyboard-open .bottom-nav {
   pointer-events: none;
 }
 
+/* Search clear button */
+.search-clear {
+  position: relative;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  margin-right: -6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: manipulation;
+}
+
+.search-clear::before,
+.search-clear::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 17px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.search-clear::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.search-clear::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.search-clear:active {
+  background: rgba(47, 125, 74, 0.1);
+  color: var(--primary-dark);
+}
+
+.search-clear:focus,
+.search-clear:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.search-clear[hidden] {
+  display: none;
+}
+

@@ -3,15 +3,56 @@
 
   function findDirectResultsContainer(screen) {
     if (!screen) return null;
-    return Array.from(screen.children).find(
-      (child) =>
-        child.classList?.contains("paper-list") ||
-        child.classList?.contains("question-list")
-    ) || null;
+    return (
+      Array.from(screen.children).find(
+        (child) =>
+          child.classList?.contains("paper-list") ||
+          child.classList?.contains("question-list")
+      ) || null
+    );
+  }
+
+  function updateClearButton(input) {
+    const clearButton = input.closest(".search")?.querySelector(".search-clear");
+    if (!clearButton) return;
+    clearButton.hidden = input.value.length === 0;
+  }
+
+  function enhanceSearchControls(root = document) {
+    root.querySelectorAll?.(".search input").forEach((input) => {
+      if (!SEARCH_INPUT_IDS.has(input.id)) return;
+
+      const search = input.closest(".search");
+      if (!search || search.querySelector(".search-clear")) {
+        updateClearButton(input);
+        return;
+      }
+
+      const clearButton = document.createElement("button");
+      clearButton.type = "button";
+      clearButton.className = "search-clear";
+      clearButton.setAttribute("aria-label", "Clear search");
+      clearButton.hidden = input.value.length === 0;
+
+      clearButton.addEventListener("pointerdown", (event) => {
+        // Keep the search input focused so the mobile keyboard does not blink.
+        event.preventDefault();
+      });
+
+      clearButton.addEventListener("click", () => {
+        input.value = "";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.focus({ preventScroll: true });
+      });
+
+      search.appendChild(clearButton);
+    });
   }
 
   function updateHomeSearch(input) {
     state.globalSearch = input.value;
+    updateClearButton(input);
+
     const query = state.globalSearch.trim().toLowerCase();
     const screen = input.closest(".screen");
     const container = findDirectResultsContainer(screen);
@@ -34,6 +75,8 @@
 
   function updatePaperSearch(input) {
     state.paperSearch = input.value;
+    updateClearButton(input);
+
     const query = state.paperSearch.trim().toLowerCase();
     const paper = selectedPaper();
     const questions = query
@@ -103,4 +146,8 @@
   window.visualViewport?.addEventListener("resize", () => {
     setSearchKeyboardState(SEARCH_INPUT_IDS.has(document.activeElement?.id));
   });
+
+  const observer = new MutationObserver(() => enhanceSearchControls(app));
+  observer.observe(app, { childList: true, subtree: true });
+  enhanceSearchControls(app);
 })();
