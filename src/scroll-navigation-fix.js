@@ -2,12 +2,13 @@
   "use strict";
 
   const LIST_ROUTES = new Set(["home", "tests", "subjects"]);
+  const TEST_DETAIL_ROUTES = new Set(["test-intro", "test-result", "test-session-blocked"]);
   const DETAIL_FROM_LIST = {
     home: new Set(["paper"]),
-    tests: new Set(["test-intro", "test-result", "test-session-blocked"]),
+    tests: TEST_DETAIL_ROUTES,
     subjects: new Set(["subject"])
   };
-  const TEST_DETAIL_ROUTES = new Set(["test-intro", "test-result", "test-session-blocked"]);
+  const TEST_LOAD_TIMEOUT_MS = 5000;
 
   const savedScrollTop = {
     home: 0,
@@ -16,16 +17,16 @@
   };
 
   let renderedRoute = state.route;
-  let scrollToken = 0;
+  let scrollOperation = 0;
   let scrollCaptureFrame = 0;
   let ignoreScrollCaptureUntil = 0;
-  let testTopLockUntil = 0;
+  let testOpenGeneration = 0;
   let testOpenPromise = null;
 
   try {
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   } catch {
-    // Older browsers may not expose scrollRestoration.
+    // Ignore browsers that do not expose scroll restoration controls.
   }
 
   function scrollingElement() {
@@ -34,19 +35,17 @@
 
   function currentScrollTop() {
     const element = scrollingElement();
-    const value = Number(element?.scrollTop);
-    if (Number.isFinite(value)) return Math.max(0, value);
+    const elementTop = Number(element?.scrollTop);
+    if (Number.isFinite(elementTop)) return Math.max(0, elementTop);
     return Math.max(0, Number(window.scrollY || window.pageYOffset) || 0);
   }
 
   function writeScrollTop(top) {
     const safeTop = Math.max(0, Number(top) || 0);
-
     if (document.documentElement) document.documentElement.scrollTop = safeTop;
     if (document.body) document.body.scrollTop = safeTop;
     const element = scrollingElement();
     if (element) element.scrollTop = safeTop;
-
     window.scrollTo(0, safeTop);
   }
 
@@ -55,67 +54,22 @@
     savedScrollTop[route] = currentScrollTop();
   }
 
-  function releaseAnchorLock() {
-    document.documentElement.style.removeProperty("overflow-anchor");
-    document.body?.style.removeProperty("overflow-anchor");
-  }
-
-  function settleScroll(route, top, durationMs = 520) {
-    const token = ++scrollToken;
+  function scheduleScroll(route, top) {
+    const operation = ++scrollOperation;
     const safeTop = Math.max(0, Number(top) || 0);
-    const startedAt = performance.now();
-    ignoreScrollCaptureUntil = startedAt + durationMs + 100;
-
-    document.documentElement.style.setProperty("overflow-anchor", "none");
-    document.body?.style.setProperty("overflow-anchor", "none");
+    ignoreScrollCaptureUntil = performance.now() + 500;
 
     const apply = () => {
-      if (token !== scrollToken || state.route !== route) {
-        releaseAnchorLock();
-        return;
-      }
-
-      if (safeTop === 0) {
-        app.querySelector(".screen")?.scrollIntoView({ block: "start", inline: "nearest", behavior: "auto" });
-      }
+      if (operation !== scrollOperation || state.route !== route) return;
       writeScrollTop(safeTop);
-
-      if (performance.now() - startedAt < durationMs) {
-        requestAnimationFrame(apply);
-      } else {
-        writeScrollTop(safeTop);
-        releaseAnchorLock();
-      }
     };
 
     requestAnimationFrame(apply);
+    [40, 140, 320].forEach((delay) => window.setTimeout(apply, delay));
   }
 
   function shouldOpenAtTop(previousRoute, nextRoute) {
     return Boolean(DETAIL_FROM_LIST[previousRoute]?.has(nextRoute));
-  }
-
-  function lockTestDetailAtTop(durationMs = 2200) {
-    testTopLockUntil = Math.max(testTopLockUntil, performance.now() + durationMs);
-    if (TEST_DETAIL_ROUTES.has(state.route)) {
-      settleScroll(state.route, 0, Math.min(durationMs, 700));
-    }
-  }
-
-  function applyOpeningState() {
-    const screen = app.querySelector(".screen");
-    if (screen) screen.setAttribute("aria-busy", "true");
-
-    const primaryAction = app.querySelector("#startTest, #resumeTest, #viewTestResult");
-    if (primaryAction) {
-      primaryAction.disabled = true;
-      primaryAction.textContent = "Checking test...";
-    }
-
-    app.querySelectorAll(".topbar [data-route], .bottom-nav [data-route], [data-route='tests']")
-      .forEach((button) => {
-        button.disabled = true;
-      });
   }
 
   const renderBeforeScrollFix = render;
@@ -127,87 +81,224 @@
     const output = renderBeforeScrollFix.apply(this, args);
     renderedRoute = nextRoute;
 
-    const testTopLocked = TEST_DETAIL_ROUTES.has(nextRoute) && performance.now() < testTopLockUntil;
-
-    if (shouldOpenAtTop(previousRoute, nextRoute) || testTopLocked) {
-      settleScroll(nextRoute, 0, testTopLocked ? 700 : 520);
+    if (shouldOpenAtTop(previousRoute, nextRoute)) {
+      scheduleScroll(nextRoute, 0);
     } else if (LIST_ROUTES.has(nextRoute)) {
-      settleScroll(nextRoute, savedScrollTop[nextRoute], 360);
-    }
-
-    if (testOpenPromise && TEST_DETAIL_ROUTES.has(nextRoute)) {
-      requestAnimationFrame(applyOpeningState);
+      scheduleScroll(nextRoute, savedScrollTop[nextRoute]);
     }
 
     return output;
   };
 
-  const originalOpenTestPaper = typeof openTestPaper === "function" ? openTestPaper : null;
+  function normalizeAttempt(attempt) {
+    return typeof normalizeTestAttempt === "function"
+      ? normalizeTestAttempt(attempt)
+      : attempt;
+  }
 
-  if (originalOpenTestPaper) {
-    openTestPaper = function openTestPaperSingleFlight(paperId) {
-      if (testOpenPromise) return testOpenPromise;
+  function localAttemptFor(paperId) {
+    if (typeof readLocalTestAttempt !== "function") return null;
+    try {
+      return normalizeAttempt(readLocalTestAttempt(paperId));
+    } catch (error) {
+      console.warn("Saved test state could not be read", error);
+      return null;
+    }
+  }
 
-      const selectedPaperId = String(paperId || "");
-      lockTestDetailAtTop(2600);
+  function renderAttemptRoute(paperId, attempt) {
+    const normalized = normalizeAttempt(attempt);
 
-      testOpenPromise = (async () => {
-        try {
-          // Render immediately from the latest device copy so the first tap responds
-          // without waiting for a cold Firestore read. Controls stay disabled until
-          // the authoritative cloud check finishes.
-          const localAttempt = typeof readLocalTestAttempt === "function"
-            ? normalizeTestAttempt(readLocalTestAttempt(selectedPaperId))
-            : null;
+    state.selectedTestPaperId = paperId;
+    state.currentAttempt = normalized;
+    state.testMessage = "";
+    state.testSessionBlocked = false;
 
-          state.selectedTestPaperId = selectedPaperId;
-          state.testMessage = "";
-          state.testSessionBlocked = false;
-          state.currentAttempt = localAttempt;
+    if (normalized && attemptSessionHeldByAnotherTab(normalized)) {
+      state.testSessionBlocked = true;
+      state.route = "test-session-blocked";
+    } else if (normalized?.status === "submitted") {
+      state.route = "test-result";
+    } else {
+      state.testQuestionNumber = normalized?.currentQuestion || 1;
+      state.testQuestionStartedAt = Date.now();
+      state.route = "test-intro";
+    }
 
-          if (localAttempt && attemptSessionHeldByAnotherTab(localAttempt)) {
-            state.testSessionBlocked = true;
-            state.route = "test-session-blocked";
-          } else if (localAttempt?.status === "submitted") {
-            state.route = "test-result";
-          } else {
-            state.testQuestionNumber = localAttempt?.currentQuestion || 1;
-            state.testQuestionStartedAt = Date.now();
-            state.route = "test-intro";
-          }
+    render();
+    scheduleScroll(state.route, 0);
+  }
 
-          render();
-          applyOpeningState();
-          lockTestDetailAtTop(2600);
+  function boundedResult(promise, timeoutMs) {
+    let timeoutId = null;
 
-          await originalOpenTestPaper(selectedPaperId);
-          lockTestDetailAtTop(900);
-        } catch (error) {
-          console.error("Could not open test", error);
-          state.route = "tests";
-          render();
-        }
-      })().finally(() => {
-        testOpenPromise = null;
-        if (TEST_DETAIL_ROUTES.has(state.route)) {
-          lockTestDetailAtTop(700);
-        }
+    const settled = Promise.resolve(promise).then(
+      (value) => ({ status: "fulfilled", value }),
+      (error) => ({ status: "rejected", error })
+    );
+
+    const timeout = new Promise((resolve) => {
+      timeoutId = window.setTimeout(
+        () => resolve({ status: "timeout" }),
+        timeoutMs
+      );
+    });
+
+    return Promise.race([settled, timeout]).finally(() => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    });
+  }
+
+  function requestIsCurrent(generation, paperId) {
+    return generation === testOpenGeneration
+      && state.selectedTestPaperId === paperId
+      && TEST_DETAIL_ROUTES.has(state.route);
+  }
+
+  function applyClosedWindowMarker(attempt, paperId) {
+    const normalized = normalizeAttempt(attempt);
+    if (!normalized || normalized.status !== "active") return normalized;
+    if (normalized.activeClientId && !attemptSessionBelongsToCurrentTab(normalized)) {
+      return normalized;
+    }
+
+    const markerKey = testCloseMarkerKey(paperId);
+    let marker = null;
+
+    try {
+      marker = JSON.parse(localStorage.getItem(markerKey) || "null");
+    } catch (error) {
+      console.warn("Invalid saved test-close marker was discarded", error);
+      localStorage.removeItem(markerKey);
+      return normalized;
+    }
+
+    if (!marker) return normalized;
+    if (marker.clientId && marker.clientId !== currentTestClientId()) return normalized;
+
+    localStorage.removeItem(markerKey);
+
+    const remainingMs = Math.max(
+      0,
+      Number.isFinite(Number(marker.remainingMs))
+        ? Number(marker.remainingMs)
+        : remainingAttemptMs(normalized)
+    );
+    const pauseCount = Number(normalized.pauseCount || 0);
+
+    if (pauseCount >= 2) {
+      state.currentAttempt = { ...normalized, remainingMs };
+      submitAttempt("pause-limit").catch((error) => {
+        console.error("Automatic test submission failed", error);
       });
+      state.testMessage = "Pause limit was already used. The test was submitted automatically.";
+      return state.currentAttempt;
+    }
 
-      return testOpenPromise;
-    };
+    const pausedAttempt = normalizeAttempt({
+      ...normalized,
+      status: "paused",
+      controlVersion: nextAttemptControlVersion(normalized),
+      remainingMs,
+      pauseCount: pauseCount + 1,
+      lastPauseAtMs: marker.atMs || Date.now(),
+      lastPauseSource: "closed-app",
+      activeStartedAtMs: null,
+      expiresAtMs: null
+    });
+
+    state.currentAttempt = pausedAttempt;
+    state.testMessage = `Test paused because the app was closed. Pauses used: ${pausedAttempt.pauseCount}/2.`;
+    saveTestAttempt(pausedAttempt).catch((error) => {
+      console.error("Could not save the recovered paused test", error);
+    });
+
+    return pausedAttempt;
   }
 
-  // A cloud snapshot can rerender the same Test Instructions route after the
-  // first top reset. Keep the page pinned to top only during the short opening window.
-  if (typeof MutationObserver === "function") {
-    new MutationObserver(() => {
-      if (TEST_DETAIL_ROUTES.has(state.route) && performance.now() < testTopLockUntil) {
-        settleScroll(state.route, 0, 420);
-        if (testOpenPromise) requestAnimationFrame(applyOpeningState);
+  function cancelPendingTestOpen() {
+    if (!testOpenPromise) return;
+    testOpenGeneration += 1;
+    testOpenPromise = null;
+  }
+
+  app.addEventListener(
+    "click",
+    (event) => {
+      const routeButton = event.target.closest?.("[data-route]");
+      if (routeButton && testOpenPromise) {
+        cancelPendingTestOpen();
       }
-    }).observe(app, { childList: true });
-  }
+    },
+    true
+  );
+
+  openTestPaper = function openTestPaperWithoutBlocking(paperId) {
+    if (testOpenPromise) return testOpenPromise;
+
+    const selectedPaperId = String(paperId || "");
+    const generation = ++testOpenGeneration;
+
+    stopTestAttemptListener();
+    stopTestSessionHeartbeat();
+
+    const localAttempt = localAttemptFor(selectedPaperId);
+    renderAttemptRoute(selectedPaperId, localAttempt);
+
+    const operation = (async () => {
+      const loaded = await boundedResult(loadTestAttempt(selectedPaperId), TEST_LOAD_TIMEOUT_MS);
+
+      if (!requestIsCurrent(generation, selectedPaperId)) return;
+
+      let attempt = localAttempt;
+
+      if (loaded.status === "fulfilled") {
+        attempt = normalizeAttempt(loaded.value);
+      } else if (loaded.status === "rejected") {
+        console.error("Could not load the latest test state", loaded.error);
+      } else {
+        console.warn("Latest test-state check timed out; continuing with the saved device state.");
+      }
+
+      if (!requestIsCurrent(generation, selectedPaperId)) return;
+
+      if (attempt && attemptSessionHeldByAnotherTab(attempt)) {
+        state.currentAttempt = attempt;
+        state.testSessionBlocked = true;
+        state.route = "test-session-blocked";
+        startTestAttemptListener(selectedPaperId);
+        render();
+        scheduleScroll(state.route, 0);
+        return;
+      }
+
+      attempt = applyClosedWindowMarker(attempt, selectedPaperId);
+
+      if (!requestIsCurrent(generation, selectedPaperId)) return;
+
+      state.currentAttempt = normalizeAttempt(attempt);
+      startTestAttemptListener(selectedPaperId);
+
+      if (state.currentAttempt?.status === "submitted") {
+        state.route = "test-result";
+      } else {
+        state.testQuestionNumber = state.currentAttempt?.currentQuestion || 1;
+        state.testQuestionStartedAt = Date.now();
+        state.route = "test-intro";
+      }
+
+      render();
+      scheduleScroll(state.route, 0);
+    })();
+
+    testOpenPromise = operation.finally(() => {
+      if (generation === testOpenGeneration) {
+        testOpenPromise = null;
+      }
+    });
+
+    return testOpenPromise;
+  };
 
   window.addEventListener(
     "scroll",
