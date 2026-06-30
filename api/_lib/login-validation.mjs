@@ -1,8 +1,16 @@
 export const ADMISSION_PATTERN = /^(?:B|K)?\d{4}A(?:[1-9]|[1-9]\d|1\d{2}|200)B(?:IV|VI)R?$/;
+const ADMISSION_PARTS = /^([BK]?)(\d{4})A(\d+)B(IV|VI)(R?)$/;
 const MAX_PASSWORD_LENGTH = 256;
 
 export function normalizeAdmissionNumber(value) {
-  return String(value ?? "").toUpperCase().replace(/\s+/g, "");
+  const normalized = String(value ?? "").toUpperCase().replace(/\s+/g, "");
+  const match = normalized.match(ADMISSION_PARTS);
+  if (!match) return normalized;
+
+  const rollNumber = Number(match[3]);
+  if (!Number.isInteger(rollNumber)) return normalized;
+
+  return `${match[1]}${match[2]}A${rollNumber}B${match[4]}${match[5]}`;
 }
 
 function admissionYear(admissionNumber) {
