@@ -121,15 +121,11 @@
     return true;
   }
 
-  function highlightVerificationReminder() {
-    const verifyScreen = document.querySelector("#app .screen");
-    if (!verifyScreen || state?.route !== "verify") return;
+  function highlightReminderIn(element) {
+    if (!element || !element.textContent.includes(VERIFICATION_TEXT)) return;
+    if (element.querySelector(".verification-inbox-reminder")) return;
 
-    const notice = [...verifyScreen.querySelectorAll(".notice")]
-      .find((element) => element.textContent.includes(VERIFICATION_TEXT));
-    if (!notice || notice.dataset.inboxReminderHighlighted === "true") return;
-
-    const walker = document.createTreeWalker(notice, NodeFilter.SHOW_TEXT);
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     let node = walker.nextNode();
 
     while (node) {
@@ -149,16 +145,29 @@
         if (after) fragment.appendChild(document.createTextNode(after));
 
         node.parentNode.replaceChild(fragment, node);
-        notice.dataset.inboxReminderHighlighted = "true";
         break;
       }
       node = walker.nextNode();
     }
   }
 
+  function highlightInboxAndSpamReminder() {
+    const route = state?.route;
+    if (route !== "verify" && route !== "forgot") return;
+
+    const screen = document.querySelector("#app .screen");
+    if (!screen) return;
+
+    const selector = route === "verify"
+      ? ".notice"
+      : ".notice, [data-error='form'], .form-status";
+
+    screen.querySelectorAll(selector).forEach(highlightReminderIn);
+  }
+
   function enhanceCurrentScreen() {
     configureSignupForm(document.querySelector("#signupForm"));
-    highlightVerificationReminder();
+    highlightInboxAndSpamReminder();
   }
 
   if (!document.querySelector("#registrationInputFixStyles")) {
