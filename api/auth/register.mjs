@@ -83,6 +83,19 @@ function safeErrorPayload(error) {
   };
 }
 
+async function createRegistrationCustomToken(services, uid, requestId) {
+  try {
+    return await services.auth.createCustomToken(uid);
+  } catch (error) {
+    console.warn("Registration custom-token creation failed; client will use password fallback", {
+      requestId,
+      uid,
+      reason: String(error?.code || "custom_token_failed").slice(0, 120)
+    });
+    return "";
+  }
+}
+
 export default async function handler(request, response) {
   setSecurityHeaders(response);
 
@@ -152,6 +165,8 @@ export default async function handler(request, response) {
     });
   }
 
+  const requestId = String(request.headers?.["x-vercel-id"] || "").slice(0, 160);
+
   try {
     const services = await getFirebaseAdmin();
     await consumeAuthRateLimits({
@@ -169,16 +184,23 @@ export default async function handler(request, response) {
     });
 
     const user = await createAtomicRegistration(result.data, services);
+    const customToken = await createRegistrationCustomToken(
+      services,
+      user.uid,
+      requestId
+    );
+
     return response.status(201).json({
       ok: true,
       stage: "registered",
-      user
+      user,
+      ...(customToken ? { customToken } : {})
     });
   } catch (error) {
     applyRetryAfterHeader(response, error);
     const safe = safeErrorPayload(error);
     console.error("Atomic registration failed", {
-      requestId: String(request.headers?.["x-vercel-id"] || "").slice(0, 160),
+      requestId,
       reason: String(error?.code || "registration_failed").slice(0, 120),
       errorName: String(error?.name || "Error").slice(0, 80),
       message: String(error?.message || "Unknown error").slice(0, 240)
