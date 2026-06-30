@@ -92,6 +92,20 @@ export function verifyEmailPassword(email, password, options = {}) {
   }, options);
 }
 
+export function exchangeCustomToken(customToken, options = {}) {
+  return postIdentityToolkit("signInWithCustomToken", {
+    token: customToken,
+    returnSecureToken: true
+  }, options);
+}
+
+export function requestEmailVerification(idToken, options = {}) {
+  return postIdentityToolkit("sendOobCode", {
+    requestType: "VERIFY_EMAIL",
+    idToken
+  }, options);
+}
+
 export function requestPasswordReset(email, options = {}) {
   return postIdentityToolkit("sendOobCode", {
     requestType: "PASSWORD_RESET",

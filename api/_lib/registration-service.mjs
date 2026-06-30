@@ -15,7 +15,7 @@ function authFailure(error) {
   const code = String(error?.code || "");
 
   if (code === "auth/email-already-exists") {
-    return conflict("email_in_use", "This email is already linked to an account. Sign in instead.");
+    return conflict("email_in_use", "An account already exists with this email address. Sign in instead or use Forgot Password.");
   }
   if (code === "auth/invalid-email") {
     return new RegistrationServiceError("invalid_email", "Valid email format required.", 400, error);
