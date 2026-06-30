@@ -9,6 +9,10 @@ import {
 } from "../_lib/auth-rate-limit.mjs";
 import { getFirebaseAdmin } from "../_lib/firebase-admin.mjs";
 import {
+  exchangeCustomToken,
+  requestEmailVerification
+} from "../_lib/identity-toolkit.mjs";
+import {
   RegistrationServiceError,
   createAtomicRegistration
 } from "../_lib/registration-service.mjs";
@@ -83,16 +87,43 @@ function safeErrorPayload(error) {
   };
 }
 
-async function createRegistrationCustomToken(services, uid, requestId) {
+async function createClientCustomToken(services, uid, requestId) {
   try {
-    return await services.auth.createCustomToken(uid);
+    return await services.auth.createCustomToken(uid, {
+      purpose: "registration_client_session"
+    });
   } catch (error) {
-    console.warn("Registration custom-token creation failed; client will use password fallback", {
+    console.warn("Registration client token creation failed; browser will use password fallback", {
       requestId,
       uid,
       reason: String(error?.code || "custom_token_failed").slice(0, 120)
     });
     return "";
+  }
+}
+
+async function sendInitialVerificationEmail(services, uid, requestId) {
+  try {
+    const verificationToken = await services.auth.createCustomToken(uid, {
+      purpose: "registration_email_verification"
+    });
+    const identity = await exchangeCustomToken(verificationToken);
+    const idToken = String(identity?.idToken || "").trim();
+
+    if (!idToken) {
+      throw new Error("Identity Toolkit did not return an ID token.");
+    }
+
+    await requestEmailVerification(idToken);
+    return true;
+  } catch (error) {
+    console.warn("Initial verification email could not be sent by the registration API", {
+      requestId,
+      uid,
+      reason: String(error?.code || error?.name || "verification_email_failed").slice(0, 120),
+      message: String(error?.message || "").slice(0, 200)
+    });
+    return false;
   }
 }
 
@@ -184,16 +215,17 @@ export default async function handler(request, response) {
     });
 
     const user = await createAtomicRegistration(result.data, services);
-    const customToken = await createRegistrationCustomToken(
-      services,
-      user.uid,
-      requestId
-    );
+
+    const [verificationEmailSent, customToken] = await Promise.all([
+      sendInitialVerificationEmail(services, user.uid, requestId),
+      createClientCustomToken(services, user.uid, requestId)
+    ]);
 
     return response.status(201).json({
       ok: true,
       stage: "registered",
       user,
+      verificationEmailSent,
       ...(customToken ? { customToken } : {})
     });
   } catch (error) {
