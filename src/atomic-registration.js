@@ -3,6 +3,7 @@
 
   const REGISTER_ENDPOINT = "/api/auth/register";
   const SIGN_IN_ATTEMPTS = 5;
+  const VERIFICATION_SEND_ATTEMPTS = 3;
   let registrationInFlight = false;
 
   function buildRequestBody(data = {}) {
@@ -139,7 +140,7 @@
     throw lastError;
   }
 
-  function openVerificationPage(data, credential) {
+  function openVerificationPage(data, expectedUid) {
     const {
       password: _password,
       confirmPassword: _confirmPassword,
@@ -148,19 +149,49 @@
 
     state.user = {
       ...profile,
-      uid: credential.user.uid,
+      uid: expectedUid,
       emailVerified: false
     };
     state.route = "verify";
     render();
+    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
   }
 
-  function sendVerificationWithoutBlocking(credential) {
-    Promise.resolve()
-      .then(() => state.auth.sendEmailVerification(credential.user))
-      .catch((error) => {
-        console.warn("Verification email could not be sent automatically", error);
-      });
+  async function sendVerificationWithRetry(credential) {
+    let lastError;
+
+    for (let attempt = 0; attempt < VERIFICATION_SEND_ATTEMPTS; attempt += 1) {
+      try {
+        await state.auth.sendEmailVerification(credential.user);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (attempt < VERIFICATION_SEND_ATTEMPTS - 1) {
+          await sleep(600 * (attempt + 1));
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  async function completeVerificationSetup(data, payload) {
+    try {
+      const credential = await signInCreatedAccount(
+        data,
+        payload.user.uid,
+        payload.customToken
+      );
+
+      if (payload.verificationEmailSent !== true) {
+        await sendVerificationWithRetry(credential);
+      }
+    } catch (error) {
+      console.warn(
+        "Account was created and the verification page was opened, but browser verification setup did not finish",
+        error
+      );
+    }
   }
 
   async function useLegacySignup(form) {
@@ -212,19 +243,22 @@
           showFieldErrors(payload.fields);
           throw new Error("Please fix the highlighted fields above.");
         }
+
+        if (payload?.error === "email_in_use") {
+          const message = "An account already exists with this email address. Sign in instead or use Forgot Password.";
+          setError("email", message);
+          throw new Error(message);
+        }
+
         throw new Error(responseMessage(payload, "Account could not be created. Please try again."));
       }
 
       localStorage.removeItem("hau_signed_out");
-      setError("form", "Account created. Opening email verification...");
-      const credential = await signInCreatedAccount(
-        data,
-        payload.user.uid,
-        payload.customToken
-      );
 
-      openVerificationPage(data, credential);
-      sendVerificationWithoutBlocking(credential);
+      // The account is committed. Open the verification screen immediately.
+      // Authentication and browser-side email fallback continue independently.
+      openVerificationPage(data, payload.user.uid);
+      completeVerificationSetup(data, payload);
     } catch (error) {
       console.error("Atomic signup failed", error);
       setError("form", error?.message || "Account could not be created. Please try again.");
