@@ -1,0 +1,60 @@
+{
+  "version": "v6",
+  "created_for": "HAU M.Sc Agri Entrance app",
+  "public_feature_name": "Agriculture Base",
+  "behavior": "Keyword-based Agriculture Base answer engine: searches matching fact lines across the database and returns only a clean answer.",
+  "rules": [
+    "No document names shown",
+    "No book names shown",
+    "No PDF/DOCX names shown",
+    "No page numbers shown",
+    "No original file viewer",
+    "No related concepts shown",
+    "No matching concept cards shown on the answer screen",
+    "Only clean answer shown",
+    "No subject pills on Agriculture Base page",
+    "No bottom navigation on Agriculture Base page",
+    "No topic title above answer",
+    "No Clean Answer label",
+    "No concept/subject counters",
+    "No example helper card before searching"
+  ],
+  "files": [
+    "index.html",
+    "src/agriculture-base.js",
+    "src/data/agriculture-base-data.json",
+    "src/data/agriculture-base-facts.json",
+    "api/agriculture-answer.js"
+  ],
+  "concept_count": 2740,
+  "subject_count": 27,
+  "answer_modes": [
+    "Uses Vercel API route /api/agriculture-answer",
+    "Deterministic keyword/fact retrieval from Agriculture Base",
+    "Falls back to local keyword answer builder if API fails"
+  ],
+  "fact_count": 20526,
+  "ui_policy": "single clean answer only; no subject pills; no topic heading in answer; no Clean Answer label; no concept/subject counters; no bottom navigation; no example helper card; no related concepts; no matching concept cards; no document names; no page numbers",
+  "test_queries": {
+    "leafhopper": "Shows available leafhopper facts from Agriculture Base such as vector facts.",
+    "leafhopper order": "The order of leafhopper is not available in Agriculture Base yet.",
+    "leafhopper family": "The family of leafhopper is not available in Agriculture Base yet.",
+    "leafhopper lifecycle": "The life cycle of leafhopper is not available in Agriculture Base yet.",
+    "protein content of soybean": "protein content of Soybean: 42%.",
+    "botanical name of rice": "botanical name of Rice: Oryza sativa.",
+    "PMFBY premium": "Premium rates of PMFBY: Kharif crops: 2%; Rabi crops: 1.5%; annual commercial crops: 5%; horticultural crops: 5%."
+  },
+  "engine": "Semantic Agriculture Answer Engine V6",
+  "changes": [
+    "Added query understanding before retrieval",
+    "Added domain routing for soil particle-size queries with system names",
+    "Added family profile answers for Poaceae/Gramineae and Fabaceae/Leguminosae",
+    "Added clearer handling for monocot queries",
+    "Blocked unclear short partial queries like fab",
+    "Kept clean answer only: no related concepts, no matching cards, no document names, no page numbers"
+  ],
+  "known_test_queries": {
+    "clay particle size": "Clay particle size: < 0.002 mm.",
+    "leafhopper order": "The order of leafhopper is not available in Agriculture Base yet."
+  }
+}
